@@ -4,6 +4,32 @@ local fn = vim.fn
 
 local M = {}
 
+local function format_time(ms)
+  local h,m,s = 0, 0, 0
+
+  h = math.floor(ms / 3600000)
+  ms = ms % 3600000
+
+  m = math.floor(ms / 60000)
+  ms = ms % 60000
+
+  s = math.floor(ms / 1000)
+  ms = math.floor(ms % 1000)
+
+  local out = ""
+  if h > 0 then
+    out = out .. h .. "h"
+  end
+  if m > 0 then
+    out = out .. m .. "m"
+  end
+  if s > 0 then
+    out = out .. s .. "s"
+  end
+
+  return out
+end
+
 -- Execute a command async
 function M.execute(cmd, on_finish)
   local shell = vim.env.SHELL
@@ -14,11 +40,16 @@ function M.execute(cmd, on_finish)
 
   local job_data = {}
 
+  local start_time = uv.hrtime()
+
   local handle
   local on_exit = function(code)
+
+    local duration = (uv.hrtime() - start_time) / 1000000
+
     local state = code == 0 and "Success" or string.format("Failure %d", code)
 
-    vim.notify(string.format("%s: %q", state, cmd))
+    vim.notify(string.format("%s: %q %s", state, cmd, format_time(duration)))
 
     stdin:close()
     stdout:close()
@@ -111,7 +142,5 @@ function M.get_efm(cmd)
 
   return table.concat(efm, "")
 end
-
-print(vim.inspect(M.get_efm("cargo")))
 
 return M
