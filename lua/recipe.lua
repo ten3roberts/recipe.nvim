@@ -2,26 +2,28 @@ local fn = vim.fn
 local api = vim.api
 
 local lib = require "recipe.lib"
+local util = require "recipe.util"
 
+local M = {}
 
-local function publish_qf(data, cmd)
-  local expr = table.concat(data)
+M.config = {
+  term = {
+    height = 0.7,
+    width = 0.5,
+    type = "float"
+  },
+  actions = {
+    qf = function(data, cmd) util.parse_efm(data, cmd, "cgetexpr") end,
+    loc = function(data, cmd) util.parse_efm(data, cmd, "lgetexpr") end,
+    notify = util.notify,
+ }
+}
 
-  local old_efm = vim.o.efm
-
-  local efm = lib.get_efm(cmd)
-  print(efm)
-
-  api.nvim_command("doautocmd QuickFixCmdPre recipe")
-
-  vim.o.efm = old_efm .. ", " .. efm
-
-  pcall(api.nvim_command, string.format("cgetexpr %q", expr))
-
-  vim.o.efm = old_efm
-
-  api.nvim_command("doautocmd QuickFixCmdPost recipe")
+function M.setup(config)
+  M.config = vim.tbl_deep_extend("force", M.config, config)
 end
 
-lib.execute("sleep 0.3 && rg function", publish_qf)
-lib.execute("cargo --version", publish_qf)
+
+lib.execute("ls -a", { on_finish = "notify", interactive = true}, M.config)
+
+return M

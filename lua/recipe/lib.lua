@@ -30,63 +30,111 @@ local function format_time(ms)
   return out
 end
 
--- Execute a command async
-function M.execute(cmd, on_finish)
-  local shell = vim.env.SHELL
+local function open_term_win(opts)
+  local buf = api.nvim_create_buf(true, true)
+  local lines = vim.o.lines
+  local cols = vim.o.columns
+  local cmdheight = vim.o.cmdheight
 
-  local stdin = uv.new_pipe()
-  local stdout = uv.new_pipe()
-  local stderr = uv.new_pipe()
+  local height = math.ceil(opts.height < 1 and opts.height * lines) or opts.height
+  local width = math.ceil(opts.width < 1 and opts.width * cols) or opts.width
+  print(width, height)
 
-  local job_data = {}
+  local row = math.ceil((lines - height) / 2 - cmdheight)
+  local col = math.ceil((cols - width) / 2)
 
-  local start_time = uv.hrtime()
-
-  local handle
-  local on_exit = function(code)
-
-    local duration = (uv.hrtime() - start_time) / 1000000
-
-    local state = code == 0 and "Success" or string.format("Failure %d", code)
-
-    vim.notify(string.format("%s: %q %s", state, cmd, format_time(duration)))
-
-    stdin:close()
-    stdout:close()
-    stderr:close()
-
-    print(table.concat(job_data, ""))
-
-    on_finish(job_data, cmd)
+  if opts.type == "float" then
+    api.nvim_open_win(buf, true, { relative='editor', row = row, col = col, height=height, width=width, border = "single"})
+  elseif opts.type == "split" then
+    vim.cmd("split")
+    local win = vim.api.nvim_get_current_win()
+    api.nvim_win_set_buf(win)
+  elseif opts.type == "vsplit" then
+    vim.cmd("vsplit")
+    local win = vim.api.nvim_get_current_win()
+    api.nvim_win_set_buf(win)
+  else
+    api.nvim_err_writeln("Recipe: Unknown terminal mode " .. opts.type)
   end
 
-  handle = uv.spawn(shell, {
-    stdio = {nil, stdout, stderr},
-    args = { "-c", cmd }
-  }, vim.schedule_wrap(on_exit))
-
-  if not handle then
-    api.nvim_err_writeln(string.format("Command not found: %q", cmd))
-    stdin:close()
-    stdout:close()
-    stderr:close()
-    return
-  end
-
-
-  uv.read_start(stdout, function(_, data)
-    if data then
-      table.insert(job_data, data)
-    end
-  end)
-
-  uv.read_start(stderr, function(_, data)
-    if data then
-      table.insert(job_data, data)
-    end
-  end)
+  return buf
 end
 
+local jobs = {}
+
+_G.__recipe_read = function(id, data, _)
+  local job = jobs[id]
+
+  if #job.data < 1000 then
+    for _, part in ipairs(data) do
+      table.insert(job.data, part)
+    end
+  end
+end
+
+_G.__recipe_exit = function(id, code, _)
+  local job = jobs[id]
+
+  local duration = (uv.hrtime() - job.start_time) / 1000000
+
+  local state = code == 0 and "Success" or string.format("Failure %d", code)
+
+  vim.notify(string.format("%s: %q %s", state, job.cmd, format_time(duration)))
+
+  if code == 0 and job.term then
+    api.nvim_buf_delete(job.term, {})
+  end
+
+  local on_finish = job.opts.on_finish
+  if type(on_finish) == "function" then
+    on_finish(job.data, job.cmd)
+  elseif job.config.actions[on_finish] then
+    job.config.actions[on_finish](job.data, job.cmd)
+  end
+
+  job[id] = nil
+end
+
+vim.api.nvim_exec( [[
+  function! RecipeJobRead(j,d,e)
+  call v:lua.__recipe_read(a:j, a:d, a:e)
+  endfun
+  function! RecipeJobExit(j,d,e)
+  call v:lua.__recipe_exit(a:j, a:d, a:e)
+  endfun
+]], false)
+
+-- Execute a command async
+function M.execute(cmd, opts, config)
+  local start_time = uv.hrtime()
+
+  local job
+  local term
+
+  if opts.interactive then
+    term = open_term_win(config.term)
+    job = vim.fn.termopen(cmd, {
+      on_stdout = "RecipeJobRead",
+      on_exit = "RecipeJobExit",
+      on_stderr = "RecipeJobRead",
+    })
+  else
+    job = vim.fn.jobstart(cmd, {
+      on_stdout = "RecipeJobRead",
+      on_exit = "RecipeJobExit",
+      on_stderr = "RecipeJobRead",
+    })
+  end
+
+  jobs[job] = {
+    opts = opts,
+    cmd = cmd,
+    config = config,
+    start_time = start_time,
+    term = term,
+    data = {}
+  }
+end
 
 local function parse_compiler(compiler, t)
   t = t or {}
@@ -124,8 +172,13 @@ local function parse_compiler(compiler, t)
   return t
 end
 
+
+local efm_cache = {}
 -- Accumulate an errorformat for all matching commands
 function M.get_efm(cmd)
+  if efm_cache[cmd] then
+    return efm_cache[cmd]
+  end
 
   local efm = {}
 
@@ -140,7 +193,9 @@ function M.get_efm(cmd)
 
   end
 
-  return table.concat(efm, "")
+  local r = table.concat(efm, "")
+  efm_cache[cmd] = r
+  return r
 end
 
 return M
