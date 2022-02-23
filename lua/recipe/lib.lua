@@ -62,34 +62,44 @@ end
 
 local jobs = {}
 
-_G.__recipe_read = function(id, data, _)
+_G.__recipe_read = function(id, data)
   local job = jobs[id]
 
-  if #job.data < 1000 then
-    for _, part in ipairs(data) do
-      table.insert(job.data, part)
-    end
+  local jdata = job.data
+  local jlen = #jdata
+  if #data == 0 or jlen > 1000 then return end
+
+  -- Complete prev
+  jdata[jlen] = jdata[jlen] .. data[1]
+
+  for i=2,#data do
+    table.insert(jdata, data[i])
   end
 end
 
-_G.__recipe_exit = function(id, code, _)
+_G.__recipe_exit = function(id, code)
   local job = jobs[id]
 
   local duration = (uv.hrtime() - job.start_time) / 1000000
 
   local state = code == 0 and "Success" or string.format("Failure %d", code)
 
-  vim.notify(string.format("%s: %q %s", state, job.cmd, format_time(duration)))
+  vim.notify(string.format("%s: %q %s", state, job.recipe.cmd, format_time(duration)))
 
   if code == 0 and job.term then
     api.nvim_buf_delete(job.term, {})
   end
 
-  local on_finish = job.opts.on_finish
+  local on_finish = job.recipe.on_finish
   if type(on_finish) == "function" then
-    on_finish(job.data, job.cmd)
-  elseif job.config.actions[on_finish] then
-    job.config.actions[on_finish](job.data, job.cmd)
+    on_finish(job.data, job.recipe)
+  elseif type(on_finish) == "string" then
+    local f = job.config.actions[on_finish]
+    if f then
+      f(job.data, job.recipe)
+    else
+      api.nvim_err_writeln("No action: " .. on_finish)
+    end
   end
 
   job[id] = nil
@@ -97,105 +107,121 @@ end
 
 vim.api.nvim_exec( [[
   function! RecipeJobRead(j,d,e)
-  call v:lua.__recipe_read(a:j, a:d, a:e)
+  call v:lua.__recipe_read(a:j, a:d)
   endfun
   function! RecipeJobExit(j,d,e)
-  call v:lua.__recipe_exit(a:j, a:d, a:e)
+  call v:lua.__recipe_exit(a:j, a:d)
   endfun
 ]], false)
 
 -- Execute a command async
-function M.execute(cmd, opts, config)
+function M.execute(recipe, config)
   local start_time = uv.hrtime()
 
   local job
   local term
 
-  if opts.interactive then
+  if recipe.interactive then
     term = open_term_win(config.term)
-    job = vim.fn.termopen(cmd, {
+    job = vim.fn.termopen(recipe.cmd, {
+      cwd = recipe.cwd,
       on_stdout = "RecipeJobRead",
       on_exit = "RecipeJobExit",
       on_stderr = "RecipeJobRead",
     })
   else
-    job = vim.fn.jobstart(cmd, {
+    job = vim.fn.jobstart(recipe.cmd, {
+      cwd = recipe.cwd,
       on_stdout = "RecipeJobRead",
       on_exit = "RecipeJobExit",
       on_stderr = "RecipeJobRead",
     })
   end
 
+  if job <= 0 then
+    api.nvim_err_writeln("Failed to start job")
+    return
+  end
+
   jobs[job] = {
-    opts = opts,
-    cmd = cmd,
+    recipe = recipe,
     config = config,
     start_time = start_time,
     term = term,
-    data = {}
+    data = {""}
   }
 end
 
-local function parse_compiler(compiler, t)
-  t = t or {}
-  local cont = fn.readfile(compiler)
+-- local function parse_compiler(compiler, t)
+--   t = t or {}
+--   local cont = fn.readfile(compiler)
 
-  local in_exp = false
+--   local in_exp = false
 
-  for _, line in ipairs(cont) do
+--   for _, line in ipairs(cont) do
 
-    local set_start = select(2, line:find("^%s*CompilerSet errorformat[+=]+")) or
-  (in_exp and select(2, line:find("^%s*\\")))
+--     local set_start = select(2, line:find("^%s*CompilerSet errorformat[+=]+")) or
+--   (in_exp and select(2, line:find("^%s*\\")))
 
-    if set_start then
-      in_exp = true
+--     if set_start then
+--       in_exp = true
 
-      local part = line:sub(set_start + 1)
+--       local part = line:sub(set_start + 1):gsub(",$", "")
 
-      -- Remove comment
-      local lend = part:find("%c\"")
-      if lend then
-        part = part:sub(0, lend - 1)
-      end
-
-
-      -- Unescape
-      part = part:gsub("\\", "")
-
-      table.insert(t, part)
-
-    else
-      in_exp = false
-    end
-
-  end
-  return t
-end
+--       -- Remove comment
+--       local lend = part:find("%c\"")
+--       if lend then
+--         part = part:sub(0, lend - 1)
+--       end
 
 
-local efm_cache = {}
--- Accumulate an errorformat for all matching commands
-function M.get_efm(cmd)
-  if efm_cache[cmd] then
-    return efm_cache[cmd]
-  end
+--       -- Unescape
+--       part = part:gsub("\\", "")
 
-  local efm = {}
+--       table.insert(t, part)
 
-  local rtp = fn.escape(vim.o.runtimepath, " ")
-  for part in cmd:gmatch('[A-Za-z_-]*') do
-    -- check for compiler existance
+--     else
+--       in_exp = false
+--     end
+
+--   end
+--   return t
+-- end
+
+
+-- parse_compiler("/usr/local/share/nvim/runtime/compiler/cargo.vim")
+
+function M.get_compiler(cmd)
+  for part in cmd:gmatch('[A-Za-Z_-]*') do
     local compiler = fn.findfile("compiler/" .. part .. ".vim", rtp)
     if  compiler ~= "" then
-      -- Read compiler
-      parse_compiler(compiler, efm)
+      return part
     end
-
   end
-
-  local r = table.concat(efm, "")
-  efm_cache[cmd] = r
-  return r
 end
+-- local efm_cache = {}
+-- -- Accumulate an errorformat for all matching commands
+-- function M.get_efm(cmd)
+--   if efm_cache[cmd] then
+--     return efm_cache[cmd]
+--   end
+
+--   local efm = {}
+
+--   local rtp = fn.escape(vim.o.runtimepath, " ")
+--   for part in cmd:gmatch('[A-Za-z_-]*') do
+--     -- check for compiler existance
+--     local compiler = fn.findfile("compiler/" .. part .. ".vim", rtp)
+--     if  compiler ~= "" then
+--       -- Read compiler
+--       parse_compiler(compiler, efm)
+--     end
+
+--   end
+
+--   local r = table.concat(efm, ",")
+--   efm_cache[cmd] = r
+--   return r
+-- end
 
 return M
