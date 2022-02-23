@@ -121,16 +121,20 @@ function M.execute(recipe, config)
   local job
   local term
 
+  local fname = fn.expand("%.")
+  local cmd = recipe.cmd:gsub("%%", fname)
+  vim.notify(cmd)
+
   if recipe.interactive then
     term = open_term_win(config.term)
-    job = vim.fn.termopen(recipe.cmd, {
+    job = vim.fn.termopen(cmd, {
       cwd = recipe.cwd,
       on_stdout = "RecipeJobRead",
       on_exit = "RecipeJobExit",
       on_stderr = "RecipeJobRead",
     })
   else
-    job = vim.fn.jobstart(recipe.cmd, {
+    job = vim.fn.jobstart(cmd, {
       cwd = recipe.cwd,
       on_stdout = "RecipeJobRead",
       on_exit = "RecipeJobExit",
@@ -152,46 +156,8 @@ function M.execute(recipe, config)
   }
 end
 
--- local function parse_compiler(compiler, t)
---   t = t or {}
---   local cont = fn.readfile(compiler)
-
---   local in_exp = false
-
---   for _, line in ipairs(cont) do
-
---     local set_start = select(2, line:find("^%s*CompilerSet errorformat[+=]+")) or
---   (in_exp and select(2, line:find("^%s*\\")))
-
---     if set_start then
---       in_exp = true
-
---       local part = line:sub(set_start + 1):gsub(",$", "")
-
---       -- Remove comment
---       local lend = part:find("%c\"")
---       if lend then
---         part = part:sub(0, lend - 1)
---       end
-
-
---       -- Unescape
---       part = part:gsub("\\", "")
-
---       table.insert(t, part)
-
---     else
---       in_exp = false
---     end
-
---   end
---   return t
--- end
-
-
--- parse_compiler("/usr/local/share/nvim/runtime/compiler/cargo.vim")
-
 function M.get_compiler(cmd)
+  local rtp = vim.o.rtp
   for part in cmd:gmatch('[A-Za-Z_-]*') do
     local compiler = fn.findfile("compiler/" .. part .. ".vim", rtp)
     if  compiler ~= "" then

@@ -1,0 +1,6 @@
+{
+  "build": {
+    "cmd": "cargo build",
+    "cwd": "../../rust/waves/"
+  }
+}

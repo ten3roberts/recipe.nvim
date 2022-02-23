@@ -113,10 +113,15 @@ function M.recipe(name)
   return M.recipes[name]
 end
 
+local filetypes = require "recipe.ft"
+
 --- Execute a recipe asynchronously
 function M.bake(name)
-  local recipe = M.recipe(name)
-  if recipe then
+  local recipe = M.recipe(name) or filetypes[vim.o.ft][name]
+  if type(recipe) == "string" then
+    local t = vim.tbl_extend("force", default_recipe, { cmd = recipe })
+    lib.execute(t, M.config)
+  elseif type(recipe) == "table" then
     lib.execute(recipe, M.config)
   else
     api.nvim_err_writeln("No recipe: " .. name)

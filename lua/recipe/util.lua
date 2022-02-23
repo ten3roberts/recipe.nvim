@@ -16,12 +16,18 @@ function M.parse_efm(data, recipe, ty)
     vim.cmd("compiler! " .. compiler)
   end
 
+  local old_cwd
+  if recipe.cwd then
+    old_cwd = vim.fn.getcwd()
+    vim.cmd("noau cd " .. recipe.cwd)
+  end
+
   api.nvim_command("doautocmd QuickFixCmdPre recipe")
 
   if ty == "c" then
     vim.fn.setqflist({}, "r", { title = cmd, lines = data })
   else
-    vim.fn.setloclist({}, "a", { title = cmd, lines = data })
+    vim.fn.setloclist({}, "r", { title = cmd, lines = data })
   end
 
   api.nvim_command("doautocmd QuickFixCmdPost recipe")
@@ -31,6 +37,10 @@ function M.parse_efm(data, recipe, ty)
   vim.o.makeprg = old_makeprg
   if old_c ~= nil then
     vim.cmd("compiler " .. old_c)
+  end
+
+  if old_cwd then
+    vim.cmd("noau cd " .. old_cwd)
   end
 
 end
