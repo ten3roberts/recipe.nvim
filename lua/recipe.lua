@@ -1,13 +1,15 @@
 local api = vim.api
+local fn = vim.fn
 
 local lib = require "recipe.lib"
 local util = require "recipe.util"
 
 local M = {}
 
----@class config
----@field term term
----@field actions table key-value pairs for on_finish actions
+--- @class config
+--- @field term term
+--- @field actions table key-value pairs for on_finish actions
+--- @field config_file string
 M.config = {
   --- @class term
   --- @field height number
@@ -22,13 +24,22 @@ M.config = {
     qf = function(data, cmd) util.parse_efm(data, cmd, "c") end,
     loc = function(data, cmd) util.parse_efm(data, cmd, "l") end,
     notify = util.notify,
-  }
+  },
+  config_file = "recipes.json"
 }
 
 --- Provide a custom config
 --- @param config config
 function M.setup(config)
-  M.config = vim.tbl_deep_extend("force", M.config, config)
+  M.config = vim.tbl_deep_extend("force", M.config, config or {})
+  api.nvim_exec (string.format ([[
+    augroup Recipe
+    au DirChanged,VimEnter lua require"recipe".load_config()
+    au BufWrite %q lua require"recipe".load_config()
+    augroup END
+  ]], M.config.config_file), false)
+
+
 end
 
 
@@ -39,19 +50,60 @@ end
 local default_recipe = {
   interactive = false,
   on_finish = "qf"
-
 }
 
 
 M.recipes = {}
 
+function M.clear()
+  M.recipes = {}
+end
+
+--- @return string
+function M.serialize()
+  return fn.json_encode(M.recipes)
+end
+
 --- Execute a recipe by name
 --- @param name string
---- @param recipe recipe
-function M.insert_recipe(name, recipe)
-  local t = vim.tbl_extend("force", default_recipe, recipe)
+--- @param recipe recipe|string
+function M.insert(name, recipe)
+  local t
+  if type(recipe) == "string" then
+    t = vim.tbl_extend("force", default_recipe, { cmd = recipe })
+  else
+    t = vim.tbl_extend("force", default_recipe, recipe)
+  end
 
   M.recipes[name] = t
+end
+
+--- Loads recipes from `recipes.json`
+function M.load_config()
+  local path = M.config.config_file
+  local f = io.open(path, "r")
+
+  if not f then
+    vim.notify("No recipes")
+    return
+  end
+  local lines = {}
+  for line in f:lines() do
+    lines[#lines + 1] = line
+  end
+
+  vim.notify(vim.inspect(lines, "\n"))
+
+  local obj = fn.json_decode(lines)
+
+  for k,v in pairs(obj) do
+    if type(k) ~= "string" then
+      api.nvim_err_writeln("Expected string key in %q", path);
+      return
+    end
+
+    M.insert(k, v)
+  end
 
 end
 
@@ -69,12 +121,12 @@ function M.bake(name)
   else
     api.nvim_err_writeln("No recipe: " .. name)
   end
-
 end
 
 
-lib.execute({cmd = "cargo build --color=never", cwd = "../../rust/waves", on_finish = "qf", interactive = true}, M.config)
--- lib.execute({cmd = "ls ~/", on_finish = "notify", interactive = false}, M.config)
 
+M.setup()
+M.load_config()
+M.bake("build")
 
 return M
