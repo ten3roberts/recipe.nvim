@@ -2,5 +2,13 @@
   "build": {
     "cmd": "cargo build",
     "cwd": "../../rust/waves/"
+  },
+  "py": {
+    "cmd": "python",
+    "interactive": true
+  },
+  "lua": {
+    "cmd": "lua",
+    "interactive": true
   }
 }

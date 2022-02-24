@@ -30,8 +30,7 @@ local function format_time(ms)
   return out
 end
 
-local function open_term_win(opts)
-  local buf = api.nvim_create_buf(true, true)
+local function open_term_win(buf, opts)
   local lines = vim.o.lines
   local cols = vim.o.columns
   local cmdheight = vim.o.cmdheight
@@ -43,24 +42,26 @@ local function open_term_win(opts)
   local row = math.ceil((lines - height) / 2 - cmdheight)
   local col = math.ceil((cols - width) / 2)
 
+  local win
   if opts.type == "float" then
-    api.nvim_open_win(buf, true, { relative='editor', row = row, col = col, height=height, width=width, border = "single"})
+    win = api.nvim_open_win(buf, true, { relative='editor', row = row, col = col, height=height, width=width, border = "single"})
   elseif opts.type == "split" then
     vim.cmd("split")
-    local win = vim.api.nvim_get_current_win()
+    win = vim.api.nvim_get_current_win()
     api.nvim_win_set_buf(win)
   elseif opts.type == "vsplit" then
     vim.cmd("vsplit")
-    local win = vim.api.nvim_get_current_win()
+    win = vim.api.nvim_get_current_win()
     api.nvim_win_set_buf(win)
   else
     api.nvim_err_writeln("Recipe: Unknown terminal mode " .. opts.type)
   end
 
-  return buf
+  return { buf = buf, win = win}
 end
 
 local jobs = {}
+local job_names = {}
 
 _G.__recipe_read = function(id, data)
   local job = jobs[id]
@@ -87,7 +88,7 @@ _G.__recipe_exit = function(id, code)
   vim.notify(string.format("%s: %q %s", state, job.recipe.cmd, format_time(duration)))
 
   if code == 0 and job.term then
-    api.nvim_buf_delete(job.term, {})
+    api.nvim_buf_delete(job.term.buf, {})
   end
 
   local on_finish = job.recipe.on_finish
@@ -102,6 +103,7 @@ _G.__recipe_exit = function(id, code)
     end
   end
 
+  job_names[job.cmd] = nil
   job[id] = nil
 end
 
@@ -114,27 +116,51 @@ vim.api.nvim_exec( [[
   endfun
 ]], false)
 
+function M.focus(cmd)
+  local job = job_names[cmd]
+  if not job then
+    return false
+  end
+
+  if job.term then
+    local win = fn.bufwinid(job.term.buf)
+    if win ~= -1 then
+      api.nvim_set_current_win(win)
+    else
+      open_term_win(job.term.buf, job.config.term)
+    end
+  end
+
+  return true
+end
+
 -- Execute a command async
 function M.execute(recipe, config)
   local start_time = uv.hrtime()
 
-  local job
+  local id
   local term
 
   local fname = fn.expand("%.")
   local cmd = recipe.cmd:gsub("%%", fname)
+
+  if M.focus(cmd) then
+    return
+  end
+
   vim.notify(cmd)
 
   if recipe.interactive then
-    term = open_term_win(config.term)
-    job = vim.fn.termopen(cmd, {
+    local buf = api.nvim_create_buf(true, true)
+    term = open_term_win(buf, config.term)
+    id = vim.fn.termopen(cmd, {
       cwd = recipe.cwd,
       on_stdout = "RecipeJobRead",
       on_exit = "RecipeJobExit",
       on_stderr = "RecipeJobRead",
     })
   else
-    job = vim.fn.jobstart(cmd, {
+    id = vim.fn.jobstart(cmd, {
       cwd = recipe.cwd,
       on_stdout = "RecipeJobRead",
       on_exit = "RecipeJobExit",
@@ -142,18 +168,22 @@ function M.execute(recipe, config)
     })
   end
 
-  if job <= 0 then
+  if id <= 0 then
     api.nvim_err_writeln("Failed to start job")
     return
   end
 
-  jobs[job] = {
+  local job = {
     recipe = recipe,
+    cmd = cmd,
     config = config,
     start_time = start_time,
     term = term,
     data = {""}
   }
+
+  jobs[id] = job
+  job_names[cmd] = job
 end
 
 function M.get_compiler(cmd)

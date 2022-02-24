@@ -34,12 +34,13 @@ function M.setup(config)
   M.config = vim.tbl_deep_extend("force", M.config, config or {})
   api.nvim_exec (string.format ([[
     augroup Recipe
+    au!
     au DirChanged,VimEnter lua require"recipe".load_config()
-    au BufWrite %q lua require"recipe".load_config()
+    au BufWrite %s lua require"recipe".load_config()
     augroup END
-  ]], M.config.config_file), false)
+  ]], fn.fnameescape(M.config.config_file)), false)
 
-
+  M.load_config()
 end
 
 
@@ -87,24 +88,27 @@ function M.load_config()
     vim.notify("No recipes")
     return
   end
+
+
   local lines = {}
   for line in f:lines() do
     lines[#lines + 1] = line
   end
 
-  vim.notify(vim.inspect(lines, "\n"))
-
   local obj = fn.json_decode(lines)
 
+  local c = 0
   for k,v in pairs(obj) do
     if type(k) ~= "string" then
       api.nvim_err_writeln("Expected string key in %q", path);
       return
     end
 
+    c = c + 1
     M.insert(k, v)
   end
 
+  vim.notify(string.format("Loaded %d recipes", c))
 end
 
 --- Return a recipe by name
@@ -127,11 +131,5 @@ function M.bake(name)
     api.nvim_err_writeln("No recipe: " .. name)
   end
 end
-
-
-
-M.setup()
-M.load_config()
-M.bake("build")
 
 return M

@@ -28,5 +28,6 @@ local filetypes = {
   end
 }
 
+setmetatable(filetypes, filetypes)
 
 return filetypes
