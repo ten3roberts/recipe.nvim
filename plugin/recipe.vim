@@ -4,3 +4,4 @@ command! -nargs=* -complete=customlist,RecipeComplete Bake lua require'recipe'.b
 command! -nargs=* -complete=shellcmd Execute lua require'recipe'.execute(<q-args>)
 command! RecipeLoadConfig lua require'recipe'.load_config()
 command! RecipePick lua require'recipe'.pick()
+command! RecipeStopAll lua require'recipe'.stop_all()

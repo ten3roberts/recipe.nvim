@@ -35,7 +35,8 @@ function M.make_recipe(cmd)
     cmd = cmd,
     interactive = false,
     on_finish = "qf",
-    uses = 0
+    uses = 0,
+    last_access = 0,
   }
 end
 
@@ -99,11 +100,15 @@ end
 _G.__recipe_exit = function(id, code)
   local job = jobs[id]
 
-  local duration = (uv.hrtime() - job.start_time) / 1000000
+  if not job.recipe.interactive then
+    local duration = (uv.hrtime() - job.start_time) / 1000000
 
-  local state = code == 0 and "Success" or string.format("Failure %d", code)
+    local state = code == 0 and "Success" or string.format("Failure %d", code)
 
-  vim.notify(string.format("%s: %q %s", state, job.recipe.cmd, format_time(duration)))
+
+    vim.notify(string.format("%s: %q %s", state, job.recipe.cmd,
+      format_time(duration)))
+  end
 
   if code == 0 and job.term then
     api.nvim_buf_delete(job.term.buf, {})
@@ -161,6 +166,12 @@ function M.is_active(key)
   return job_names[key] ~= nil
 end
 
+function M.stop_all()
+  for i in pairs(jobs) do
+    fn.jobstop(i)
+  end
+end
+
 -- Execute a command async
 function M.execute(key, recipe, config)
   local start_time = uv.hrtime()
@@ -206,6 +217,9 @@ function M.execute(key, recipe, config)
     data = {""},
     key = key,
   }
+
+  recipe.uses = recipe.uses + 1
+  recipe.last_access = uv.hrtime() / 1000000000
 
   jobs[id] = job
   job_names[key] = job

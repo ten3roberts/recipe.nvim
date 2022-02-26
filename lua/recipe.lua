@@ -53,7 +53,8 @@ end
 local default_recipe = {
   interactive = false,
   on_finish = "qf",
-  uses = 0
+  uses = 0,
+  last_access = 0
 }
 
 
@@ -74,13 +75,16 @@ end
 function M.insert(name, recipe)
   local t
   if type(recipe) == "string" then
-    t = vim.tbl_extend("force", default_recipe, { cmd = recipe })
+    t = lib.make_recipe(name)
   else
     t = vim.tbl_extend("force", default_recipe, recipe)
   end
 
   M.recipes[name] = t
 end
+
+
+M.stop_all = lib.stop_all
 
 --- Loads recipes from `recipes.json`
 function M.load_config()
@@ -137,6 +141,13 @@ function M.execute(cmd)
     lib.execute(cmd, t, M.config)
 end
 
+local function recipe_score(recipe, now)
+  local dur = now - recipe.last_access
+
+  return recipe.uses / dur
+
+end
+
 local function order()
   local t = {}
   for k,v in pairs(M.recipes) do
@@ -149,7 +160,8 @@ local function order()
     end
   end
 
-  table.sort(t, function(a,b) return a[2].uses> b[2].uses end)
+  local now = vim.loop.hrtime() / 1000000000
+  table.sort(t, function(a,b) return recipe_score(a[2], now) >  recipe_score(b[2], now) end)
   return t
 end
 
@@ -172,7 +184,6 @@ function M.pick()
 
     local r = items[idx]
     M.bake(r[1])
-    r[2].uses = r[2].uses + 1
   end)
 end
 
