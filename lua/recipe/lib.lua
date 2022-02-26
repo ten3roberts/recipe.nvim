@@ -30,6 +30,15 @@ local function format_time(ms)
   return out
 end
 
+function M.make_recipe(cmd)
+  return {
+    cmd = cmd,
+    interactive = false,
+    on_finish = "qf",
+    uses = 0
+  }
+end
+
 local function open_term_win(buf, opts)
   local lines = vim.o.lines
   local cols = vim.o.columns
@@ -44,7 +53,15 @@ local function open_term_win(buf, opts)
 
   local win
   if opts.type == "float" then
-    win = api.nvim_open_win(buf, true, { relative='editor', row = row, col = col, height=height, width=width, border = "single"})
+    win = api.nvim_open_win(buf, true,
+    {
+        relative='editor',
+        row = row,
+        col = col,
+        height=height,
+        width=width,
+        border = opts.border,
+      })
   elseif opts.type == "split" then
     vim.cmd("split")
     win = vim.api.nvim_get_current_win()
@@ -60,6 +77,7 @@ local function open_term_win(buf, opts)
   return { buf = buf, win = win}
 end
 
+local job_count = 0
 local jobs = {}
 local job_names = {}
 
@@ -103,8 +121,9 @@ _G.__recipe_exit = function(id, code)
     end
   end
 
-  job_names[job.cmd] = nil
+  job_names[job.key] = nil
   job[id] = nil
+  job_count = job_count - 1
 end
 
 vim.api.nvim_exec( [[
@@ -116,8 +135,8 @@ vim.api.nvim_exec( [[
   endfun
 ]], false)
 
-function M.focus(cmd)
-  local job = job_names[cmd]
+function M.focus(key)
+  local job = job_names[key]
   if not job then
     return false
   end
@@ -134,8 +153,16 @@ function M.focus(cmd)
   return true
 end
 
+function M.active_jobs()
+  return job_count
+end
+
+function M.is_active(key)
+  return job_names[key] ~= nil
+end
+
 -- Execute a command async
-function M.execute(recipe, config)
+function M.execute(key, recipe, config)
   local start_time = uv.hrtime()
 
   local id
@@ -144,11 +171,9 @@ function M.execute(recipe, config)
   local fname = fn.expand("%.")
   local cmd = recipe.cmd:gsub("%%", fname)
 
-  if M.focus(cmd) then
+  if M.focus(key) then
     return
   end
-
-  vim.notify(cmd)
 
   if recipe.interactive then
     local buf = api.nvim_create_buf(true, true)
@@ -175,15 +200,16 @@ function M.execute(recipe, config)
 
   local job = {
     recipe = recipe,
-    cmd = cmd,
     config = config,
     start_time = start_time,
     term = term,
-    data = {""}
+    data = {""},
+    key = key,
   }
 
   jobs[id] = job
-  job_names[cmd] = job
+  job_names[key] = job
+  job_count = job_count + 1
 end
 
 function M.get_compiler(cmd)
@@ -195,29 +221,7 @@ function M.get_compiler(cmd)
     end
   end
 end
--- local efm_cache = {}
--- -- Accumulate an errorformat for all matching commands
--- function M.get_efm(cmd)
---   if efm_cache[cmd] then
---     return efm_cache[cmd]
---   end
 
---   local efm = {}
 
---   local rtp = fn.escape(vim.o.runtimepath, " ")
---   for part in cmd:gmatch('[A-Za-z_-]*') do
---     -- check for compiler existance
---     local compiler = fn.findfile("compiler/" .. part .. ".vim", rtp)
---     if  compiler ~= "" then
---       -- Read compiler
---       parse_compiler(compiler, efm)
---     end
-
---   end
-
---   local r = table.concat(efm, ",")
---   efm_cache[cmd] = r
---   return r
--- end
 
 return M

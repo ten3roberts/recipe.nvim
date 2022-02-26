@@ -1,27 +1,29 @@
+local make_recipe = require "recipe.lib".make_recipe
+
 local filetypes = {
   rust = {
-    build = 'cargo build -q',
-    check = 'cargo check --examples -q',
-    clippy = 'cargo clippy -q',
-    clean = 'clean -q',
-    run = 'cargo run',
-    test = 'cargo test -q --all-features',
-    doc = 'cargo doc -q --open',
+    build = make_recipe 'cargo build -q',
+    check = make_recipe 'cargo check --examples -q',
+    clippy = make_recipe 'cargo clippy -q',
+    clean = make_recipe 'clean -q',
+    run = make_recipe 'cargo run',
+    test = make_recipe 'cargo test -q --all-features',
+    doc = make_recipe 'cargo doc -q --open',
   },
   glsl = {
-    check = 'glslangValidator -V %'
+    check = make_recipe 'glslangValidator -V %'
   },
   html = {
-    build = 'live-server %',
-    check = 'live-server %',
-    run = 'live-server %',
+    build = make_recipe 'live-server %',
+    check = make_recipe 'live-server %',
+    run = make_recipe 'live-server %',
   },
   lua = {
-    build = 'luac %',
-    check = 'luac %',
-    clean = 'rm luac.out',
-    lint = 'luac %',
-    run = 'lua %',
+    build = make_recipe 'luac %',
+    check = make_recipe 'luac %',
+    clean = make_recipe 'rm luac.out',
+    lint = make_recipe 'luac %',
+    run = make_recipe 'lua %',
   },
   __index = function()
     return {}

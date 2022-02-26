@@ -15,10 +15,12 @@ M.config = {
   --- @field height number
   --- @field width number
   --- @field type string
+  --- @field border string
   term = {
     height = 0.7,
     width = 0.5,
-    type = "float"
+    type = "float",
+    border = "shadow"
   },
   actions = {
     qf = function(data, cmd) util.parse_efm(data, cmd, "c") end,
@@ -36,7 +38,7 @@ function M.setup(config)
     augroup Recipe
     au!
     au DirChanged,VimEnter lua require"recipe".load_config()
-    au BufWrite %s lua require"recipe".load_config()
+    au BufWritePost %s lua require"recipe".load_config()
     augroup END
   ]], fn.fnameescape(M.config.config_file)), false)
 
@@ -50,7 +52,8 @@ end
 --- @field on_finish string|function
 local default_recipe = {
   interactive = false,
-  on_finish = "qf"
+  on_finish = "qf",
+  uses = 0
 }
 
 
@@ -122,14 +125,94 @@ local filetypes = require "recipe.ft"
 --- Execute a recipe asynchronously
 function M.bake(name)
   local recipe = M.recipe(name) or filetypes[vim.o.ft][name]
-  if type(recipe) == "string" then
-    local t = vim.tbl_extend("force", default_recipe, { cmd = recipe })
-    lib.execute(t, M.config)
-  elseif type(recipe) == "table" then
-    lib.execute(recipe, M.config)
+  if recipe then
+    lib.execute(name, recipe, M.config)
   else
     api.nvim_err_writeln("No recipe: " .. name)
   end
 end
+
+function M.execute(cmd)
+    local t = lib.make_recipe(cmd)
+    lib.execute(cmd, t, M.config)
+end
+
+local function order()
+  local t = {}
+  for k,v in pairs(M.recipes) do
+    t[#t+1] = {k,v}
+  end
+
+  for k,v in pairs(filetypes[vim.o.ft]) do
+    if not M.recipes[k] then
+    t[#t+1] = {k,v}
+    end
+  end
+
+  table.sort(t, function(a,b) return a[2].uses> b[2].uses end)
+  return t
+end
+
+function M.pick()
+  local items = order()
+
+  if #items == 0 then
+    return
+  end
+
+  local opts = {
+    format_item = function(val)
+      return
+        string.format("%s %s - %s", lib.is_active( val[1] ) and "*" or " ", val[1], val[2].cmd or val[2])
+    end,
+  }
+
+  vim.ui.select(items, opts, function(item, idx)
+    if not item then return end
+
+    local r = items[idx]
+    M.bake(r[1])
+    r[2].uses = r[2].uses + 1
+  end)
+end
+
+function M.complete(lead, _, _)
+  lead = lead .. ".*"
+  local t = {}
+  for k,_ in pairs(M.recipes) do
+    if k:gmatch(lead) then
+      t[#t+1] = k
+    end
+  end
+
+  for k,_ in pairs(filetypes[vim.o.ft]) do
+    if k:gmatch(lead) then
+      t[#t+1] = k
+    end
+  end
+  return t
+end
+
+
+local sl = require "recipe.statusline"
+function M.statusline()
+  local spinner = ""
+  if lib.active_jobs() > 0 then
+    sl.start()
+    spinner = sl.get_spinner()
+  else
+    sl.stop()
+  end
+
+  return spinner
+end
+
+_G.__recipe_complete = M.complete
+
+api.nvim_exec( [[
+  function! RecipeComplete(lead, cmd, cur)
+    return v:lua.__recipe_complete(a:lead, a:cmd, a:cur)
+  endfun
+]], true)
 
 return M
