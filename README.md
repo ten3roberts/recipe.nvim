@@ -1,10 +1,11 @@
 # Recipe 🍜
 
-Easily define per project or filetype commands to kick off test suits ...
+Easily define per project or filetype commands to kick off test suits or run
+repls ...
 
 ... and have the results land in the quickfix list.
 
-Recipes are automatically loaded from `recipes.json` in the current working
+Recipes are automatically loaded from `recipes.json` from the current working
 directory. Recipes for common filetypes are preloaded, like build commands.
 
 Pairs extraordinarily well with [qf.nvim](https://github.com/ten3roberts/qf.nvim)
@@ -24,11 +25,19 @@ require "recipe".bake(name)
 If a recipe of the specified name is not loaded it will attempted to fallback to
 a filetype default. This allows generic "lint" or "build" commands.
 
+## Recipes
 
-## Per project configuration
-Add a file called `recipes.json` in the working directory and it will be loaded automatically.
+Recipes define a task which is executec async in the shell, similar to "tasks"
+in VSCode.
 
-Recipes can either be a string specifying a shell command, or a table for
+Recipes can be either be defined globally, per filetype, or per project
+
+To define global recipes, look at [Configuration](#Configuration).
+
+Per-project recipes are defined in `recipes.json` in the current working
+directory and will be loaded automatically if trusted (More on that later).
+
+Each recipe defined in json can either be a string specifying a shell command, or a table for
 additional options.
 
 Any filename modifiers such as `%`, `<cfile>`, and others will be expanded
@@ -44,6 +53,14 @@ All recipes are a lua table consiting of
 
 Use `recipe.lib.make_recipe(cmd, [interactive = false])` to easily create a
 command using sane defaults.
+
+Recipe invocations are idempotent, so multiple of the same build invocations
+won't be run at the same time. If a recipe uses expansion, the expanded command
+is used to determine idempotency.
+
+If a recipe is interactive and is run again, the terminal will be focused or
+created again. This is very useful for a REPL which can be closed, reopened, or
+refocused.
 
 ### Example
 ```json
@@ -62,7 +79,7 @@ command using sane defaults.
 
 ```
 
-## Global Configuration
+## Configuration
 ```lua
 M.config = {
   -- Configure the terminal for interctive commands
@@ -95,6 +112,11 @@ M.config = {
 }
 ```
 
+## Statusline
+
+To get an indicator or a running job, simply include `recipe.statusline` on your
+statusline.
+
 ## Security
 
 It is not always a safe to be able to execute arbitrary commands which are
@@ -102,9 +124,12 @@ loaded from a file, as is the case for `recipes.json`.
 
 While the user may have created the file themselves, malicious recipes could be
 loaded through entering cloned repositories from the internet which have a
-`recipes.json`. Malicious intent could also be induced through git when
-carelessly merging or pulling others peoples code.
+`recipes.json` or could be induced through git when carelessly merging or
+pulling other peoples code.
 
 To mitigate this issue, the plugin will ask for confirmation before loading
 project local recipes for new projects, or if the recipes file has been changed
 outside of Vim.
+
+This also means that tying "build" or other common commands to an autocommand or
+keymap is safe and won't automatically run malicious code.

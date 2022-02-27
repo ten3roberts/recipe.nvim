@@ -1,6 +1,5 @@
 local M = {}
 local lib = require "recipe.lib"
-local api = vim.api
 
 function M.parse_efm(data, recipe, ty)
   local cmd = recipe.cmd
@@ -22,19 +21,21 @@ function M.parse_efm(data, recipe, ty)
     vim.cmd("noau cd " .. recipe.cwd)
   end
 
-  api.nvim_command("doautocmd QuickFixCmdPre recipe")
-
   if #data == 1 and data[1] == "" then
     return
   end
 
+  print(table.concat(data, "\n"))
+
   if ty == "c" then
     vim.fn.setqflist({}, "r", { title = cmd, lines = data })
+    vim.cmd("copen | wincmd p")
   else
     vim.fn.setloclist(".", {}, "r", { title = cmd, lines = data })
+    vim.cmd("lopen | wincmd p")
   end
 
-  api.nvim_command("doautocmd QuickFixCmdPost recipe")
+
 
   vim.b.current_compiler = old_c
   vim.opt.efm = old_efm

@@ -9,7 +9,9 @@ local function remove_escape_codes(s)
 end
 
 function M.format_time(ms)
-  local h,m,s = 0, 0, 0
+  local d,h,m,s = 0, 0, 0, 0
+  d = math.floor(ms / 86400000)
+  ms = ms % 86400000
 
   h = math.floor(ms / 3600000)
   ms = ms % 3600000
@@ -20,18 +22,21 @@ function M.format_time(ms)
   s = math.floor(ms / 1000)
   ms = math.floor(ms % 1000)
 
-  local out = ""
+  local t = {}
+  if d > 0 then
+    t[#t+1] = d .. "d"
+  end
   if h > 0 then
-    out = out .. h .. "h"
+    t[#t+1] = h .. "h"
   end
   if m > 0 then
-    out = out .. m .. "m"
+    t[#t+1] =  m .. "m"
   end
   if s > 0 then
-    out = out .. s .. "s"
+    t[#t+1] = s .. "s"
   end
 
-  return out
+  return table.concat(t, " ")
 end
 
 function M.make_recipe(cmd, interactive)
@@ -94,15 +99,11 @@ _G.__recipe_read = function(id, data)
 
   -- Complete prev
   local d = remove_escape_codes(data[1])
-  if d ~= "" then
-    jdata[jlen] = jdata[jlen] .. data[1]
-  end
+  jdata[jlen] = jdata[jlen] .. d
 
   for i=2,#data do
     local s = remove_escape_codes(data[i])
-    if s ~= "" then
-      table.insert(jdata, s)
-    end
+    table.insert(jdata, s)
   end
 end
 
@@ -236,9 +237,9 @@ end
 
 function M.get_compiler(cmd)
   local rtp = vim.o.rtp
-  for part in cmd:gmatch('[A-Za-Z_-]*') do
+  for part in cmd:gmatch('%w*') do
     local compiler = fn.findfile("compiler/" .. part .. ".vim", rtp)
-    if  compiler ~= "" then
+    if compiler ~= "" then
       return part
     end
   end

@@ -8,7 +8,8 @@
     "cmd": "python",
     "interactive": true
   },
-  "lua": {
+  "luacheck": "lua %",
+  "lua-repl": {
     "cmd": "lua",
     "interactive": true
   },

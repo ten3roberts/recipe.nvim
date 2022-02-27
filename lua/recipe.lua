@@ -47,7 +47,7 @@ function M.setup(config)
   ]], fn.fnameescape(M.config.recipes_file)), false)
 
 
-setmetatable(M.config.custom_recipes, M.config.custom_recipes)
+  setmetatable(M.config.custom_recipes, M.config.custom_recipes)
 end
 
 
@@ -80,7 +80,7 @@ end
 function M.insert(name, recipe)
   local t
   if type(recipe) == "string" then
-    t = lib.make_recipe(name)
+    t = lib.make_recipe(recipe)
   else
     t = vim.tbl_extend("force", default_recipe, recipe)
   end
@@ -96,8 +96,7 @@ function M.load_recipes(trust_new)
   local path = M.config.recipes_file
 
   lib.read_file(path, vim.schedule_wrap(function(data)
-    if #data == 0 then
-      vim.notify("No recipes")
+    if not data or #data == 0 then
       return
     end
 
@@ -106,17 +105,18 @@ function M.load_recipes(trust_new)
         local mtime = fn.getftime(path)
         local strtime = fn.strftime("%c", mtime)
         local dur = lib.format_time((fn.localtime() - mtime) * 1000)
-        local trust = fn.confirm(string.format("Trust recipes from %q?\nModified %s (%s ago)", path, strtime, dur), "&Yes\n&No\n&View file")
-        if trust == 2 then return
-        elseif trust == 3 then
+        local trust = fn.confirm(string.format("Trust recipes from %q?\nModified %s (%s ago)", path, strtime, dur), "&Yes\n&No\n&View file", 2)
+        if trust == 3 then
           vim.cmd("edit " .. fn.fnameescape(path))
           vim.notify("Viewing recipes. Use :w to accept and trust file")
           return
+        else if trust ~= 1 then return end
         end
       end
 
       lib.trust_path(path, vim.schedule_wrap(function()
         local obj = fn.json_decode(data)
+        M.clear()
 
         local c = 0
         for k,v in pairs(obj) do
