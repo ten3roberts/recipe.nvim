@@ -1,7 +1,7 @@
 # Recipe 🍜
 
 Easily define per project or filetype commands to kick off test suits or run
-repls ...
+REPLS ...
 
 ... and have the results land in the quickfix list.
 
