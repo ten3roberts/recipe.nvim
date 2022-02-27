@@ -88,7 +88,6 @@ local function module_exists(name)
 end
 
 if module_exists("qf") then
-  print("QF exists")
   M.qf = M.nvim_qf
 else
   M.qf = M.vim_qf
