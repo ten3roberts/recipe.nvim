@@ -10,6 +10,7 @@ local M = {}
 --- @field term term
 --- @field actions table key-value pairs for on_finish actions
 --- @field config_file string
+--- @field custom_recipes table
 M.config = {
   --- @class term
   --- @field height number
@@ -27,7 +28,10 @@ M.config = {
     loc = function(data, cmd) util.parse_efm(data, cmd, "l") end,
     notify = util.notify,
   },
-  config_file = "recipes.json"
+  recipes_file = "recipes.json",
+  --- Define custom global recipes, either globally or by filetype as key
+  --- use lib.make_recipe for conveniance
+  custom_recipes = require "recipe.ft",
 }
 
 --- Provide a custom config
@@ -37,12 +41,13 @@ function M.setup(config)
   api.nvim_exec (string.format ([[
     augroup Recipe
     au!
-    au DirChanged,VimEnter lua require"recipe".load_config()
-    au BufWritePost %s lua require"recipe".load_config()
+    au DirChanged,VimEnter * lua require"recipe".load_recipes()
+    au BufWritePost %s lua require"recipe".load_recipes(true)
     augroup END
-  ]], fn.fnameescape(M.config.config_file)), false)
+  ]], fn.fnameescape(M.config.recipes_file)), false)
 
-  M.load_config()
+
+setmetatable(M.config.custom_recipes, M.config.custom_recipes)
 end
 
 
@@ -87,35 +92,47 @@ end
 M.stop_all = lib.stop_all
 
 --- Loads recipes from `recipes.json`
-function M.load_config()
-  local path = M.config.config_file
-  local f = io.open(path, "r")
+function M.load_recipes(trust_new)
+  local path = M.config.recipes_file
 
-  if not f then
-    vim.notify("No recipes")
-    return
-  end
-
-
-  local lines = {}
-  for line in f:lines() do
-    lines[#lines + 1] = line
-  end
-
-  local obj = fn.json_decode(lines)
-
-  local c = 0
-  for k,v in pairs(obj) do
-    if type(k) ~= "string" then
-      api.nvim_err_writeln("Expected string key in %q", path);
+  lib.read_file(path, vim.schedule_wrap(function(data)
+    if #data == 0 then
+      vim.notify("No recipes")
       return
     end
 
-    c = c + 1
-    M.insert(k, v)
-  end
+    lib.is_trusted(path, function(trusted)
+      if not trusted and not trust_new then
+        local mtime = fn.getftime(path)
+        local strtime = fn.strftime("%c", mtime)
+        local dur = lib.format_time((fn.localtime() - mtime) * 1000)
+        local trust = fn.confirm(string.format("Trust recipes from %q?\nModified %s (%s ago)", path, strtime, dur), "&Yes\n&No\n&View file")
+        if trust == 2 then return
+        elseif trust == 3 then
+          vim.cmd("edit " .. fn.fnameescape(path))
+          vim.notify("Viewing recipes. Use :w to accept and trust file")
+          return
+        end
+      end
 
-  vim.notify(string.format("Loaded %d recipes", c))
+      lib.trust_path(path, vim.schedule_wrap(function()
+        local obj = fn.json_decode(data)
+
+        local c = 0
+        for k,v in pairs(obj) do
+          if type(k) ~= "string" then
+            api.nvim_err_writeln("Expected string key in %q", path);
+            return
+          end
+
+          c = c + 1
+          M.insert(k, v)
+        end
+
+        vim.notify(string.format("Loaded %d recipes", c))
+      end))
+    end)
+  end))
 end
 
 --- Return a recipe by name
@@ -124,11 +141,14 @@ function M.recipe(name)
   return M.recipes[name]
 end
 
-local filetypes = require "recipe.ft"
 
 --- Execute a recipe asynchronously
 function M.bake(name)
-  local recipe = M.recipe(name) or filetypes[vim.o.ft][name]
+  local custom = M.config.custom_recipes
+  local recipe = M.recipe(name)
+  or custom.global[name]
+  or custom[vim.o.ft][name]
+
   if recipe then
     lib.execute(name, recipe, M.config)
   else
@@ -136,9 +156,12 @@ function M.bake(name)
   end
 end
 
-function M.execute(cmd)
-    local t = lib.make_recipe(cmd)
-    lib.execute(cmd, t, M.config)
+-- Execute an arbitrary command
+-- @params cmd string
+-- @params interactive bool
+function M.execute(cmd, interactive)
+  local t = lib.make_recipe(cmd, interactive)
+  lib.execute(cmd, t, M.config)
 end
 
 local function recipe_score(recipe, now)
@@ -149,14 +172,23 @@ local function recipe_score(recipe, now)
 end
 
 local function order()
+  local recipes = M.recipes
   local t = {}
-  for k,v in pairs(M.recipes) do
+  for k,v in pairs(recipes) do
     t[#t+1] = {k,v}
   end
 
-  for k,v in pairs(filetypes[vim.o.ft]) do
+  local custom = M.config.custom_recipes
+  local global = custom.global
+  for k,v in pairs(global) do
     if not M.recipes[k] then
-    t[#t+1] = {k,v}
+      t[#t+1] = {k,v}
+    end
+  end
+
+  for k,v in pairs(custom[vim.o.ft]) do
+    if not recipes[k] and not global[k] then
+      t[#t+1] = {k,v}
     end
   end
 
@@ -175,7 +207,7 @@ function M.pick()
   local opts = {
     format_item = function(val)
       return
-        string.format("%s %s - %s", lib.is_active( val[1] ) and "*" or " ", val[1], val[2].cmd or val[2])
+      string.format("%s %s - %s", lib.is_active( val[1] ) and "*" or " ", val[1], val[2].cmd or val[2])
     end,
   }
 
@@ -188,19 +220,14 @@ function M.pick()
 end
 
 function M.complete(lead, _, _)
-  lead = lead .. ".*"
   local t = {}
-  for k,_ in pairs(M.recipes) do
-    if k:gmatch(lead) then
-      t[#t+1] = k
+
+  for _,k in ipairs(order()) do
+    if k[1]:find(lead) then
+      t[#t+1] = k[1]
     end
   end
 
-  for k,_ in pairs(filetypes[vim.o.ft]) do
-    if k:gmatch(lead) then
-      t[#t+1] = k
-    end
-  end
   return t
 end
 

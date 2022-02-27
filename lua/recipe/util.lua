@@ -24,10 +24,14 @@ function M.parse_efm(data, recipe, ty)
 
   api.nvim_command("doautocmd QuickFixCmdPre recipe")
 
+  if #data == 1 and data[1] == "" then
+    return
+  end
+
   if ty == "c" then
     vim.fn.setqflist({}, "r", { title = cmd, lines = data })
   else
-    vim.fn.setloclist({}, "r", { title = cmd, lines = data })
+    vim.fn.setloclist(".", {}, "r", { title = cmd, lines = data })
   end
 
   api.nvim_command("doautocmd QuickFixCmdPost recipe")

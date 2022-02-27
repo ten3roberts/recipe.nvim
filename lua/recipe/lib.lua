@@ -4,7 +4,11 @@ local fn = vim.fn
 
 local M = {}
 
-local function format_time(ms)
+local function remove_escape_codes(s)
+  return s:gsub("\x1b%[.-m", ""):gsub("\r", "")
+end
+
+function M.format_time(ms)
   local h,m,s = 0, 0, 0
 
   h = math.floor(ms / 3600000)
@@ -30,10 +34,10 @@ local function format_time(ms)
   return out
 end
 
-function M.make_recipe(cmd)
+function M.make_recipe(cmd, interactive)
   return {
     cmd = cmd,
-    interactive = false,
+    interactive = interactive or false,
     on_finish = "qf",
     uses = 0,
     last_access = 0,
@@ -47,7 +51,6 @@ local function open_term_win(buf, opts)
 
   local height = math.ceil(opts.height < 1 and opts.height * lines) or opts.height
   local width = math.ceil(opts.width < 1 and opts.width * cols) or opts.width
-  print(width, height)
 
   local row = math.ceil((lines - height) / 2 - cmdheight)
   local col = math.ceil((cols - width) / 2)
@@ -90,10 +93,16 @@ _G.__recipe_read = function(id, data)
   if #data == 0 or jlen > 1000 then return end
 
   -- Complete prev
-  jdata[jlen] = jdata[jlen] .. data[1]
+  local d = remove_escape_codes(data[1])
+  if d ~= "" then
+    jdata[jlen] = jdata[jlen] .. data[1]
+  end
 
   for i=2,#data do
-    table.insert(jdata, data[i])
+    local s = remove_escape_codes(data[i])
+    if s ~= "" then
+      table.insert(jdata, s)
+    end
   end
 end
 
@@ -107,7 +116,7 @@ _G.__recipe_exit = function(id, code)
 
 
     vim.notify(string.format("%s: %q %s", state, job.recipe.cmd,
-      format_time(duration)))
+      M.format_time(duration)))
   end
 
   if code == 0 and job.term then
@@ -116,11 +125,11 @@ _G.__recipe_exit = function(id, code)
 
   local on_finish = job.recipe.on_finish
   if type(on_finish) == "function" then
-    on_finish(job.data, job.recipe)
+    on_finish(job.data or "", job.recipe)
   elseif type(on_finish) == "string" then
     local f = job.config.actions[on_finish]
     if f then
-      f(job.data, job.recipe)
+      f(job.data or "", job.recipe)
     else
       api.nvim_err_writeln("No action: " .. on_finish)
     end
@@ -179,8 +188,7 @@ function M.execute(key, recipe, config)
   local id
   local term
 
-  local fname = fn.expand("%.")
-  local cmd = recipe.cmd:gsub("%%", fname)
+  local cmd = recipe.cmd:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)
 
   if M.focus(key) then
     return
@@ -236,6 +244,73 @@ function M.get_compiler(cmd)
   end
 end
 
+local trusted_paths = nil
+local trusted_paths_dir = fn.stdpath("cache") .. "/recipe"
+local trusted_paths_path = trusted_paths_dir .. "/trusted_paths.json"
 
+--- @diagnostic disable
+function M.read_file(path, callback)
+  uv.fs_open(path, "r", 438, function(err, fd)
+    if err then return callback() end
+    uv.fs_fstat(fd, function(err, stat)
+      assert(not err, err)
+      uv.fs_read(fd, stat.size, 0, function(err, data)
+        assert(not err, err)
+        uv.fs_close(fd, function(err)
+          assert(not err, err)
+          return callback(data)
+        end)
+      end)
+    end)
+  end)
+end
+
+--- @diagnostic disable
+local function write_file(path, data, callback)
+  uv.fs_open(path, "w", 438, function(err, fd)
+    assert(not err, err)
+    uv.fs_write(fd, data, 0, function(err)
+      assert(not err, err)
+      uv.fs_close(fd, function(err)
+        assert(not err, err)
+        return callback()
+      end)
+    end)
+  end)
+end
+
+function M.trusted_paths(callback)
+  if trusted_paths then return callback(trusted_paths) end
+
+  M.read_file(trusted_paths_path, vim.schedule_wrap(function(data)
+    trusted_paths = data and fn.json_decode(data) or {}
+    callback(trusted_paths)
+  end))
+end
+
+function M.is_trusted(path, callback)
+  path = fn.fnamemodify(path, ":p")
+  M.trusted_paths(function(paths)
+    callback(paths[path] == fn.getftime(path))
+  end)
+end
+
+function M.trust_path(path, callback)
+  path = fn.fnamemodify(path, ":p")
+
+  M.trusted_paths(function(paths)
+    local cur = paths[path]
+    local new = fn.getftime(path)
+    if cur == new then
+      return callback()
+    end
+
+    paths[path] = new
+    fn.mkdir(trusted_paths_dir, "p")
+    local data = fn.json_encode(trusted_paths);
+    write_file(trusted_paths_path, data, callback)
+  end)
+
+end
 
 return M

@@ -1,6 +1,7 @@
 {
   "build": {
     "cmd": "cargo build",
+    "interactive": "true",
     "cwd": "../../rust/waves/"
   },
   "py": {
@@ -10,5 +11,9 @@
   "lua": {
     "cmd": "lua",
     "interactive": true
+  },
+  "local_find": {
+    "cmd": "find . -type f",
+    "on_finish": "loc"
   }
 }
