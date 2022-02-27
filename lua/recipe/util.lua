@@ -1,7 +1,7 @@
 local M = {}
 local lib = require "recipe.lib"
 
-function M.parse_efm(data, recipe, ty)
+function M.vim_qf(data, recipe, ty)
   local cmd = recipe.cmd
 
   local old_c = vim.b.current_compiler;
@@ -25,7 +25,6 @@ function M.parse_efm(data, recipe, ty)
     return
   end
 
-  print(table.concat(data, "\n"))
 
   if ty == "c" then
     vim.fn.setqflist({}, "r", { title = cmd, lines = data })
@@ -34,8 +33,6 @@ function M.parse_efm(data, recipe, ty)
     vim.fn.setloclist(".", {}, "r", { title = cmd, lines = data })
     vim.cmd("lopen | wincmd p")
   end
-
-
 
   vim.b.current_compiler = old_c
   vim.opt.efm = old_efm
@@ -47,7 +44,54 @@ function M.parse_efm(data, recipe, ty)
   if old_cwd then
     vim.cmd("noau cd " .. old_cwd)
   end
+end
 
+function M.nvim_qf(data, recipe, ty)
+
+  local cmd = recipe.cmd
+
+  local compiler = lib.get_compiler(recipe.cmd)
+  if compiler ~= nil then
+    vim.cmd("compiler! " .. compiler)
+  end
+
+  local old_cwd
+  if recipe.cwd then
+    old_cwd = vim.fn.getcwd()
+    vim.cmd("noau cd " .. recipe.cwd)
+  end
+
+  if #data == 1 and data[1] == "" then
+    return
+  end
+
+  require("qf").set(ty, data, cmd, nil, compiler)
+
+  if old_cwd then
+    vim.cmd("noau cd " .. old_cwd)
+  end
+end
+
+local function module_exists(name)
+  if package.loaded[name] then
+    return true
+  else
+    for _, searcher in ipairs(package.searchers or package.loaders) do
+      local loader = searcher(name)
+      if type(loader) == 'function' then
+        package.preload[name] = loader
+        return true
+      end
+    end
+    return false
+  end
+end
+
+if module_exists("qf") then
+  print("QF exists")
+  M.qf = M.nvim_qf
+else
+  M.qf = M.vim_qf
 end
 
 function M.notify(data, cmd)
