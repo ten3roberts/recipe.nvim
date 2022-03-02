@@ -8,7 +8,7 @@ local M = {}
 
 --- @class config
 --- @field term term
---- @field actions table key-value pairs for on_finish actions
+--- @field actions table key-value pairs for action actions
 --- @field config_file string
 --- @field custom_recipes table
 M.config = {
@@ -32,6 +32,10 @@ M.config = {
   --- Define custom global recipes, either globally or by filetype as key
   --- use lib.make_recipe for conveniance
   custom_recipes = require "recipe.ft",
+  hooks = {
+    pre = { function() vim.cmd(":wa") end }
+
+  }
 }
 
 --- Provide a custom config
@@ -54,10 +58,10 @@ end
 --- @class recipe
 --- @field cmd string
 --- @field interactive boolean
---- @field on_finish string|function
+--- @field action string|function
 local default_recipe = {
   interactive = false,
-  on_finish = "qf",
+  action = "qf",
   uses = 0,
   last_access = 0
 }
@@ -165,9 +169,9 @@ function M.execute(cmd, interactive)
 end
 
 local function recipe_score(recipe, now)
-  local dur = now - recipe.last_access
+  local dur = now - recipe[2].last_access
 
-  return recipe.uses / dur
+  return (recipe[2].uses + 1) / dur * recipe[3]
 
 end
 
@@ -175,25 +179,25 @@ local function order()
   local recipes = M.recipes
   local t = {}
   for k,v in pairs(recipes) do
-    t[#t+1] = {k,v}
+    t[#t+1] = {k,v,1.0}
   end
 
   local custom = M.config.custom_recipes
   local global = custom.global
   for k,v in pairs(global) do
     if not M.recipes[k] then
-      t[#t+1] = {k,v}
+      t[#t+1] = {k,v,0.5}
     end
   end
 
   for k,v in pairs(custom[vim.o.ft]) do
     if not recipes[k] and not global[k] then
-      t[#t+1] = {k,v}
+      t[#t+1] = {k,v, 0.25}
     end
   end
 
   local now = vim.loop.hrtime() / 1000000000
-  table.sort(t, function(a,b) return recipe_score(a[2], now) >  recipe_score(b[2], now) end)
+  table.sort(t, function(a,b) return recipe_score(a, now) > recipe_score(b, now) end)
   return t
 end
 

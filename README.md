@@ -48,7 +48,7 @@ All recipes are a lua table consiting of
   - *cmd* - The command to execute
   - *interactive* - Open a terminal for the process and allow user input,
     useful for running your program
-  - *on_finish* - Execute a function by ref or name (as specified in
+  - *action* - Execute a function by ref or name (as specified in
     `config.actions`)
 
 Use `recipe.lib.make_recipe(cmd, [interactive = false])` to easily create a
@@ -73,7 +73,7 @@ refocused.
   },
   "open": {
     "cmd": "xdg-open %:h",
-    "on_finish": "loc"
+    "action": "loc"
   }
 }
 
@@ -90,7 +90,7 @@ M.config = {
     border = "shadow"
   },
   -- Specify your own actions as a function
-  -- These are then used in `recipe.on_finish`
+  -- These are then used in `recipe.action`
   actions = {
     qf = function(data, cmd) util.parse_efm(data, cmd, "c") end,
     loc = function(data, cmd) util.parse_efm(data, cmd, "l") end,

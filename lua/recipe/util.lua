@@ -1,7 +1,12 @@
 local M = {}
 local lib = require "recipe.lib"
 
-function M.vim_qf(data, recipe, ty)
+function M.vim_qf(data, recipe, ty, status)
+  if status == 0 then
+    vim.fn.setqflist({}, "r", {})
+    vim.cmd (ty .. "close")
+    return;
+  end
   local cmd = recipe.cmd
 
   local old_c = vim.b.current_compiler;
@@ -46,7 +51,11 @@ function M.vim_qf(data, recipe, ty)
   end
 end
 
-function M.nvim_qf(data, recipe, ty)
+function M.nvim_qf(data, recipe, ty, status)
+  if status == 0 then
+    require("qf").clear()
+    return;
+  end
 
   local cmd = recipe.cmd
 

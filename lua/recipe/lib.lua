@@ -43,13 +43,13 @@ function M.make_recipe(cmd, interactive)
   return {
     cmd = cmd,
     interactive = interactive or false,
-    on_finish = "qf",
+    action = "qf",
     uses = 0,
     last_access = 0,
   }
 end
 
-local function open_term_win(buf, opts)
+local function open_term_win(bufnr, opts)
   local lines = vim.o.lines
   local cols = vim.o.columns
   local cmdheight = vim.o.cmdheight
@@ -62,7 +62,7 @@ local function open_term_win(buf, opts)
 
   local win
   if opts.type == "float" then
-    win = api.nvim_open_win(buf, true,
+    win = api.nvim_open_win(bufnr, true,
     {
         relative='editor',
         row = row,
@@ -71,6 +71,9 @@ local function open_term_win(buf, opts)
         width=width,
         border = opts.border,
       })
+
+  vim.cmd(string.format("autocmd WinLeave <buffer=%s> silent! lua vim.defer_fn(funtion() if api.nvim_get_current_win() == %d then vim.api.nvim_win_close(win) end end)", bufnr, win))
+
   elseif opts.type == "split" then
     vim.cmd("split")
     win = vim.api.nvim_get_current_win()
@@ -83,7 +86,7 @@ local function open_term_win(buf, opts)
     api.nvim_err_writeln("Recipe: Unknown terminal mode " .. opts.type)
   end
 
-  return { buf = buf, win = win}
+  return { buf = bufnr, win = win}
 end
 
 local job_count = 0
@@ -95,7 +98,7 @@ _G.__recipe_read = function(id, data)
 
   local jdata = job.data
   local jlen = #jdata
-  if #data == 0 or jlen > 1000 then return end
+  if #data == 0 or jlen > 10000 then return end
 
   -- Complete prev
   local d = remove_escape_codes(data[1])
@@ -124,15 +127,15 @@ _G.__recipe_exit = function(id, code)
     api.nvim_buf_delete(job.term.buf, {})
   end
 
-  local on_finish = job.recipe.on_finish
-  if type(on_finish) == "function" then
-    on_finish(job.data or "", job.recipe)
-  elseif type(on_finish) == "string" then
-    local f = job.config.actions[on_finish]
+  local action = job.recipe.action
+  if type(action) == "function" then
+    action(job.data or "", job.recipe, code)
+  elseif type(action) == "string" then
+    local f = job.config.actions[action]
     if f then
-      f(job.data or "", job.recipe)
+      f(job.data or "", job.recipe, code)
     else
-      api.nvim_err_writeln("No action: " .. on_finish)
+      api.nvim_err_writeln("No action: " .. action)
     end
   end
 
@@ -193,6 +196,10 @@ function M.execute(key, recipe, config)
 
   if M.focus(key) then
     return
+  end
+
+  for _,hook in ipairs(config.hooks.pre) do
+    hook(recipe)
   end
 
   if recipe.interactive then
