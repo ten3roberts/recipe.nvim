@@ -74,7 +74,12 @@ function M.nvim_qf(data, recipe, ty, status)
     return
   end
 
-  require("qf").set(ty, data, cmd, nil, compiler)
+  require("qf").set(ty, {
+    title = cmd,
+    compiler = compiler,
+    lines = data,
+    open = status ~= 0
+  })
 
   if old_cwd then
     vim.cmd("noau cd " .. old_cwd)

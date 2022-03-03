@@ -72,16 +72,25 @@ local function open_term_win(bufnr, opts)
         border = opts.border,
       })
 
-  vim.cmd(string.format("autocmd WinLeave <buffer=%s> silent! lua vim.defer_fn(funtion() if api.nvim_get_current_win() == %d then vim.api.nvim_win_close(win) end end)", bufnr, win))
+    local function close()
+      if api.nvim_win_is_valid(win) and api.nvim_get_current_win() ~= win then
+        api.nvim_win_close(win, false)
+      end
+    end
+
+    local key = "__recipe_float_close" .. win
+    _G[key] = close
+
+    vim.cmd(string.format("autocmd WinLeave <buffer=%d> :lua vim.defer_fn(_G[%q], 100)", bufnr, key))
 
   elseif opts.type == "split" then
     vim.cmd("split")
     win = vim.api.nvim_get_current_win()
-    api.nvim_win_set_buf(win)
+    api.nvim_win_set_buf(win, bufnr)
   elseif opts.type == "vsplit" then
     vim.cmd("vsplit")
     win = vim.api.nvim_get_current_win()
-    api.nvim_win_set_buf(win)
+    api.nvim_win_set_buf(win, bufnr)
   else
     api.nvim_err_writeln("Recipe: Unknown terminal mode " .. opts.type)
   end

@@ -24,8 +24,8 @@ M.config = {
     border = "shadow"
   },
   actions = {
-    qf = function(data, cmd) util.qf(data, cmd, "c") end,
-    loc = function(data, cmd) util.qf(data, cmd, "l") end,
+    qf = function(data, cmd, s) util.qf(data, cmd, "c", s) end,
+    loc = function(data, cmd, s) util.qf(data, cmd, "l", s) end,
     notify = util.notify,
   },
   recipes_file = "recipes.json",
