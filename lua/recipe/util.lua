@@ -52,11 +52,6 @@ function M.vim_qf(data, recipe, ty, status)
 end
 
 function M.nvim_qf(data, recipe, ty, status)
-  if status == 0 then
-    require("qf").clear()
-    return;
-  end
-
   local cmd = recipe.cmd
 
   local compiler = lib.get_compiler(recipe.cmd)

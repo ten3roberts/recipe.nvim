@@ -72,13 +72,14 @@ local function open_term_win(bufnr, opts)
         border = opts.border,
       })
 
+    local key = "__recipe_float_close" .. win
     local function close()
       if api.nvim_win_is_valid(win) and api.nvim_get_current_win() ~= win then
         api.nvim_win_close(win, false)
+        _G[key] = nil
       end
     end
 
-    local key = "__recipe_float_close" .. win
     _G[key] = close
 
     vim.cmd(string.format("autocmd WinLeave <buffer=%d> :lua vim.defer_fn(_G[%q], 100)", bufnr, key))

@@ -6,3 +6,4 @@ command! -nargs=* -complete=shellcmd ExecuteInteractive lua require'recipe'.exec
 command! RecipeLoadConfig lua require'recipe'.load_config()
 command! RecipePick lua require'recipe'.pick()
 command! RecipeStopAll lua require'recipe'.stop_all()
+command! RecipeAbort lua require'recipe'.stop_all()
