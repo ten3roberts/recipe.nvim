@@ -219,6 +219,7 @@ function M.pick()
     if not item then return end
 
     local r = items[idx]
+    if not r then return end
     M.bake(r[1])
   end)
 end
