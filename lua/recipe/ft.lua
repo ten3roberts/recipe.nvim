@@ -25,6 +25,9 @@ local filetypes = {
     lint = make_recipe 'luac %',
     run = make_recipe 'lua %',
   },
+  svelte = {
+    run = make_recipe ('npm run dev', true),
+  },
   __index = function()
     return {}
   end
