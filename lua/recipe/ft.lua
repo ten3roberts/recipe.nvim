@@ -1,32 +1,30 @@
-local make_recipe = require "recipe.lib".make_recipe
-
 local filetypes = {
   rust = {
-    build = make_recipe 'cargo build --bins -q',
-    check = make_recipe 'cargo check --bins --examples -q',
-    clippy = make_recipe 'cargo clippy -q',
-    clean = make_recipe 'clean -q',
-    run = make_recipe ('cargo run', true),
-    test = make_recipe 'cargo test -q --all-features',
-    doc = make_recipe 'cargo doc -q --open',
+    build = 'cargo build --bins -q',
+    check = 'cargo check --bins --examples -q',
+    clippy = 'cargo clippy -q',
+    clean = 'clean -q',
+    run = { 'cargo run', interactive = true } ,
+    test = 'cargo test -q --all-features',
+    doc = 'cargo doc -q --open',
   },
   glsl = {
-    check = make_recipe 'glslangValidator -V %'
+    check = 'glslangValidator -V %'
   },
   html = {
-    build = make_recipe 'live-server %',
-    check = make_recipe 'live-server %',
-    run = make_recipe 'live-server %',
+    build = 'live-server %',
+    check = 'live-server %',
+    run = 'live-server %',
   },
   lua = {
-    build = make_recipe 'luac %',
-    check = make_recipe 'luac %',
-    clean = make_recipe 'rm luac.out',
-    lint = make_recipe 'luac %',
-    run = make_recipe 'lua %',
+    build = 'luac %',
+    check = 'luac %',
+    clean = 'rm luac.out',
+    lint = 'luac %',
+    run = 'lua %',
   },
   svelte = {
-    run = make_recipe ('npm run dev -- --open', true),
+    run = { cmd='npm run dev -- --open', interactive=true },
   },
   __index = function()
     return {}

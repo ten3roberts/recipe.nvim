@@ -2,58 +2,15 @@ local api = vim.api
 local fn = vim.fn
 
 local lib = require "recipe.lib"
-local util = require "recipe.util"
+local config = require "recipe.config"
 
 local M = {}
 
---- @class config
---- @field term term
---- @field actions table key-value pairs for action actions
---- @field config_file string
---- @field custom_recipes table
-M.config = {
-  --- @class term
-  --- @field height number
-  --- @field width number
-  --- @field type string
-  --- @field border string
-  term = {
-    height = 0.7,
-    width = 0.5,
-    type = "float",
-    border = "shadow"
-  },
-  actions = {
-    qf = function(data, cmd, s) util.qf(data, cmd, "c", s) end,
-    loc = function(data, cmd, s) util.qf(data, cmd, "l", s) end,
-    notify = util.notify,
-  },
-  recipes_file = "recipes.json",
-  --- Define custom global recipes, either globally or by filetype as key
-  --- use lib.make_recipe for conveniance
-  custom_recipes = require "recipe.ft",
-  hooks = {
-    pre = { function() vim.cmd(":wa") end }
-
-  }
-}
-
 --- Provide a custom config
---- @param config config
-function M.setup(config)
-  M.config = vim.tbl_deep_extend("force", M.config, config or {})
-  api.nvim_exec (string.format ([[
-    augroup Recipe
-    au!
-    au DirChanged,VimEnter,TabEnter * lua require"recipe".load_recipes()
-    au BufWritePost %s lua require"recipe".load_recipes(true)
-    augroup END
-  ]], fn.fnameescape(M.config.recipes_file)), false)
-
-
-  setmetatable(M.config.custom_recipes, M.config.custom_recipes)
+--- @param opts config
+function M.setup(opts)
+  config.setup(opts)
 end
-
 
 --- @class recipe
 --- @field cmd string
@@ -68,6 +25,7 @@ local default_recipe = {
 
 
 M.recipes = {}
+local loaded_paths = {}
 
 function M.clear()
   M.recipes = {}
@@ -95,18 +53,17 @@ function M.insert(name, recipe)
   M.recipes[name] = t
 end
 
-local cwd = nil
-
 M.stop_all = lib.stop_all
 
 --- Loads recipes from `recipes.json`
 function M.load_recipes(force)
-  if fn.getcwd() ~= cwd then
-    cwd = fn.getcwd()
-  elseif not force then
+  local cwd = fn.getcwd();
+  if not force and loaded_paths[cwd] ~= nil then
     return
   end
-  local path = M.config.recipes_file
+
+  loaded_paths[cwd ] = true;
+  local path = config.options.recipes_file
 
   lib.read_file(path, vim.schedule_wrap(function(data)
     if not data or #data == 0 then
@@ -156,13 +113,15 @@ end
 
 --- Execute a recipe asynchronously
 function M.bake(name)
-  local custom = M.config.custom_recipes
+  local custom = config.options.custom_recipes
   local recipe = M.recipe(name)
   or custom.global[name]
   or custom[vim.o.ft][name]
 
-  if recipe then
-    lib.execute(name, recipe, M.config)
+  if type(recipe) == "string" then
+    lib.execute(name, lib.make_recipe(recipe))
+  elseif type(recipe) == "table" then
+    lib.execute(name, recipe)
   else
     api.nvim_err_writeln("No recipe: " .. name)
   end
@@ -173,13 +132,13 @@ end
 -- @params interactive bool
 function M.execute(cmd, interactive)
   local t = lib.make_recipe(cmd, interactive)
-  lib.execute(cmd, t, M.config)
+  lib.execute(cmd, t)
 end
 
 local function recipe_score(recipe, now)
-  local dur = now - recipe[2].last_access
+  local dur = now - (recipe[2].last_access or 0)
 
-  return (recipe[2].uses + 1) / dur * recipe[3]
+  return ((recipe[2].uses or 0) + 1) / dur * recipe[3]
 
 end
 
@@ -190,7 +149,7 @@ local function order()
     t[#t+1] = {k,v,1.0}
   end
 
-  local custom = M.config.custom_recipes
+  local custom = config.options.custom_recipes
   local global = custom.global
   for k,v in pairs(global) do
     if not M.recipes[k] then

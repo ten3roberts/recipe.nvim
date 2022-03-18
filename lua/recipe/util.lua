@@ -1,5 +1,15 @@
 local M = {}
-local lib = require "recipe.lib"
+local fn = vim.fn
+
+function M.get_compiler(cmd)
+  local rtp = vim.o.rtp
+  for part in cmd:gmatch('%w*') do
+    local compiler = fn.findfile("compiler/" .. part .. ".vim", rtp)
+    if compiler ~= "" then
+      return part
+    end
+  end
+end
 
 function M.vim_qf(data, recipe, ty, status)
   if status == 0 then
@@ -15,7 +25,7 @@ function M.vim_qf(data, recipe, ty, status)
 
   local old_makeprg = vim.o.makeprg
 
-  local compiler = lib.get_compiler(recipe.cmd)
+  local compiler = M.get_compiler(recipe.cmd)
   if compiler ~= nil then
     vim.cmd("compiler! " .. compiler)
   end
@@ -54,7 +64,7 @@ end
 function M.nvim_qf(data, recipe, ty, status)
   local cmd = recipe.cmd
 
-  local compiler = lib.get_compiler(recipe.cmd)
+  local compiler = M.get_compiler(recipe.cmd)
   if compiler ~= nil then
     vim.cmd("compiler! " .. compiler)
   end

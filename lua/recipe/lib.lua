@@ -1,4 +1,5 @@
 local api = vim.api
+local config = require "recipe.config"
 local uv = vim.loop
 local fn = vim.fn
 
@@ -141,7 +142,7 @@ _G.__recipe_exit = function(id, code)
   if type(action) == "function" then
     action(job.data or "", job.recipe, code)
   elseif type(action) == "string" then
-    local f = job.config.actions[action]
+    local f = config.options.actions[action]
     if f then
       f(job.data or "", job.recipe, code)
     else
@@ -174,7 +175,7 @@ function M.focus(key)
     if win ~= -1 then
       api.nvim_set_current_win(win)
     else
-      open_term_win(job.term.buf, job.config.term)
+      open_term_win(job.term.buf, config.options.term)
     end
   end
 
@@ -196,7 +197,7 @@ function M.stop_all()
 end
 
 -- Execute a command async
-function M.execute(key, recipe, config)
+function M.execute(key, recipe)
   local start_time = uv.hrtime()
 
   local id
@@ -208,13 +209,13 @@ function M.execute(key, recipe, config)
     return
   end
 
-  for _,hook in ipairs(config.hooks.pre) do
+  for _,hook in ipairs(config.options.hooks.pre) do
     hook(recipe)
   end
 
   if recipe.interactive then
     local buf = api.nvim_create_buf(true, true)
-    term = open_term_win(buf, config.term)
+    term = open_term_win(buf, config.options.term)
     id = vim.fn.termopen(cmd, {
       cwd = recipe.cwd,
       on_stdout = "RecipeJobRead",
@@ -237,7 +238,6 @@ function M.execute(key, recipe, config)
 
   local job = {
     recipe = recipe,
-    config = config,
     start_time = start_time,
     term = term,
     data = {""},
@@ -250,16 +250,6 @@ function M.execute(key, recipe, config)
   jobs[id] = job
   job_names[key] = job
   job_count = job_count + 1
-end
-
-function M.get_compiler(cmd)
-  local rtp = vim.o.rtp
-  for part in cmd:gmatch('%w*') do
-    local compiler = fn.findfile("compiler/" .. part .. ".vim", rtp)
-    if compiler ~= "" then
-      return part
-    end
-  end
 end
 
 local trusted_paths = nil
