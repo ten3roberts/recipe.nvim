@@ -2,11 +2,11 @@ local make_recipe = require "recipe.lib".make_recipe
 
 local filetypes = {
   rust = {
-    build = make_recipe 'cargo build -q',
-    check = make_recipe 'cargo check --examples -q',
+    build = make_recipe 'cargo build --bins -q',
+    check = make_recipe 'cargo check --bins --examples -q',
     clippy = make_recipe 'cargo clippy -q',
     clean = make_recipe 'clean -q',
-    run = make_recipe 'cargo run',
+    run = make_recipe ('cargo run', true),
     test = make_recipe 'cargo test -q --all-features',
     doc = make_recipe 'cargo doc -q --open',
   },
@@ -26,7 +26,7 @@ local filetypes = {
     run = make_recipe 'lua %',
   },
   svelte = {
-    run = make_recipe ('npm run dev', true),
+    run = make_recipe ('npm run dev -- --open', true),
   },
   __index = function()
     return {}

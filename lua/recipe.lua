@@ -45,7 +45,7 @@ function M.setup(config)
   api.nvim_exec (string.format ([[
     augroup Recipe
     au!
-    au DirChanged,VimEnter * lua require"recipe".load_recipes()
+    au DirChanged,VimEnter,TabEnter * lua require"recipe".load_recipes()
     au BufWritePost %s lua require"recipe".load_recipes(true)
     augroup END
   ]], fn.fnameescape(M.config.recipes_file)), false)
@@ -89,14 +89,23 @@ function M.insert(name, recipe)
     t = vim.tbl_extend("force", default_recipe, recipe)
   end
 
+  t = vim.tbl_extend("keep", t, { cwd = fn.getcwd() })
+  t.cwd = fn.fnamemodify(t.cwd, ":p")
+
   M.recipes[name] = t
 end
 
+local cwd = nil
 
 M.stop_all = lib.stop_all
 
 --- Loads recipes from `recipes.json`
-function M.load_recipes(trust_new)
+function M.load_recipes(force)
+  if fn.getcwd() ~= cwd then
+    cwd = fn.getcwd()
+  elseif not force then
+    return
+  end
   local path = M.config.recipes_file
 
   lib.read_file(path, vim.schedule_wrap(function(data)
@@ -105,7 +114,7 @@ function M.load_recipes(trust_new)
     end
 
     lib.is_trusted(path, function(trusted)
-      if not trusted and not trust_new then
+      if not trusted and not force then
         local mtime = fn.getftime(path)
         local strtime = fn.strftime("%c", mtime)
         local dur = lib.format_time((fn.localtime() - mtime) * 1000)
@@ -120,7 +129,6 @@ function M.load_recipes(trust_new)
 
       lib.trust_path(path, vim.schedule_wrap(function()
         local obj = fn.json_decode(data)
-        M.clear()
 
         local c = 0
         for k,v in pairs(obj) do
