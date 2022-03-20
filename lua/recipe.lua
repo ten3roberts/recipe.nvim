@@ -2,6 +2,7 @@ local api = vim.api
 local fn = vim.fn
 
 local lib = require "recipe.lib"
+local util = require "recipe.util"
 local config = require "recipe.config"
 
 local M = {}
@@ -11,18 +12,6 @@ local M = {}
 function M.setup(opts)
   config.setup(opts)
 end
-
---- @class recipe
---- @field cmd string
---- @field interactive boolean
---- @field action string|function
-local default_recipe = {
-  interactive = false,
-  action = "qf",
-  uses = 0,
-  last_access = 0
-}
-
 
 M.recipes = {}
 local loaded_paths = {}
@@ -40,30 +29,22 @@ end
 --- @param name string
 --- @param recipe recipe|string
 function M.insert(name, recipe)
-  local t
-  if type(recipe) == "string" then
-    t = lib.make_recipe(recipe)
-  else
-    t = vim.tbl_extend("force", default_recipe, recipe)
-  end
-
-  t = vim.tbl_extend("keep", t, { cwd = fn.getcwd() })
-  t.cwd = fn.fnamemodify(t.cwd, ":p")
-
+  local t = util.make_recipe(recipe)
   M.recipes[name] = t
 end
 
 M.stop_all = lib.stop_all
 
 --- Loads recipes from `recipes.json`
-function M.load_recipes(force)
-  local cwd = fn.getcwd();
+function M.load_recipes(force, path)
+  path = path or config.options.recipes_file
+  local cwd = fn.fnamemodify(path, ":p:h");
+
   if not force and loaded_paths[cwd] ~= nil then
     return
   end
 
   loaded_paths[cwd ] = true;
-  local path = config.options.recipes_file
 
   lib.read_file(path, vim.schedule_wrap(function(data)
     if not data or #data == 0 then
@@ -95,6 +76,9 @@ function M.load_recipes(force)
           end
 
           c = c + 1
+
+          v = vim.tbl_extend("keep", util.make_recipe(v), { cwd = cwd })
+
           M.insert(k, v)
         end
 
@@ -115,7 +99,7 @@ end
 function M.bake(name)
   local custom = config.options.custom_recipes
   local recipe = M.recipe(name)
-  or custom.global[name]
+  or custom.global[name] or {}
   or custom[vim.o.ft][name]
 
   if type(recipe) == "string" then
@@ -131,7 +115,7 @@ end
 -- @params cmd string
 -- @params interactive bool
 function M.execute(cmd, interactive)
-  local t = lib.make_recipe(cmd, interactive)
+  local t = util.make_recipe(cmd, interactive)
   lib.execute(cmd, t)
 end
 
@@ -157,7 +141,7 @@ local function order()
     end
   end
 
-  for k,v in pairs(custom[vim.o.ft]) do
+  for k,v in pairs(custom[vim.o.ft] or {}) do
     if not recipes[k] and not global[k] then
       t[#t+1] = {k,v, 0.25}
     end

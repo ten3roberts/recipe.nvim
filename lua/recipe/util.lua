@@ -11,8 +11,35 @@ function M.get_compiler(cmd)
   end
 end
 
+--- @class recipe
+--- @field cmd string
+--- @field interactive boolean
+--- @field action string|function
+M.default_recipe = {
+  interactive = false,
+  action = "qf",
+  uses = 0,
+  last_access = 0
+}
+
+function M.make_recipe(recipe, interactive)
+  if type(recipe) == "string" then
+    return {
+      cmd = recipe,
+      interactive = interactive or false,
+      action = "qf",
+      uses = 0,
+      last_access = 0,
+    }
+  elseif type(recipe) == "table" then
+    return vim.tbl_extend("force", M.default_recipe, recipe)
+  else
+    vim.api.nvim_err_writeln("Expected recipe to be string or table, found: " .. type(recipe))
+  end
+end
+
 function M.vim_qf(data, recipe, ty, status)
-  if status == 0 then
+  if status == 0 or status == 130 then
     vim.fn.setqflist({}, "r", {})
     vim.cmd (ty .. "close")
     return;
@@ -28,12 +55,6 @@ function M.vim_qf(data, recipe, ty, status)
   local compiler = M.get_compiler(recipe.cmd)
   if compiler ~= nil then
     vim.cmd("compiler! " .. compiler)
-  end
-
-  local old_cwd
-  if recipe.cwd then
-    old_cwd = vim.fn.getcwd()
-    vim.cmd("noau cd " .. recipe.cwd)
   end
 
   if #data == 1 and data[1] == "" then
@@ -55,24 +76,18 @@ function M.vim_qf(data, recipe, ty, status)
   if old_c ~= nil then
     vim.cmd("compiler " .. old_c)
   end
-
-  if old_cwd then
-    vim.cmd("noau cd " .. old_cwd)
-  end
 end
 
 function M.nvim_qf(data, recipe, ty, status)
+  if status == 0 or status == 130 then
+    return require("qf").close "c"
+  end
+
   local cmd = recipe.cmd
 
   local compiler = M.get_compiler(recipe.cmd)
   if compiler ~= nil then
     vim.cmd("compiler! " .. compiler)
-  end
-
-  local old_cwd
-  if recipe.cwd then
-    old_cwd = vim.fn.getcwd()
-    vim.cmd("noau cd " .. recipe.cwd)
   end
 
   if #data == 1 and data[1] == "" then
@@ -85,10 +100,6 @@ function M.nvim_qf(data, recipe, ty, status)
     lines = data,
     open = status ~= 0
   })
-
-  if old_cwd then
-    vim.cmd("noau cd " .. old_cwd)
-  end
 end
 
 local function module_exists(name)

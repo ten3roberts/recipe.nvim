@@ -40,16 +40,6 @@ function M.format_time(ms)
   return table.concat(t, " ")
 end
 
-function M.make_recipe(cmd, interactive)
-  return {
-    cmd = cmd,
-    interactive = interactive or false,
-    action = "qf",
-    uses = 0,
-    last_access = 0,
-  }
-end
-
 local function open_term_win(bufnr, opts)
   local lines = vim.o.lines
   local cols = vim.o.columns
@@ -138,18 +128,48 @@ _G.__recipe_exit = function(id, code)
     api.nvim_buf_delete(job.term.buf, {})
   end
 
-  local action = job.recipe.action
-  if type(action) == "function" then
-    action(job.data or "", job.recipe, code)
-  elseif type(action) == "string" then
-    local f = config.options.actions[action]
-    if f then
-      f(job.data or "", job.recipe, code)
+
+  local function execute_action(action, opts)
+    if type(action) == "table" then
+      if #action > 0 then
+        for _,v in ipairs(action) do
+          execute_action(v, action.opts)
+        end
+      else
+        execute_action(action.name, action.opts)
+      end
+
+      return
+    end
+
+
+
+    local f = config.options.actions[action] or action
+    if type(f) == "function" then
+      f(job.data or "", job.recipe, code, opts)
     else
-      api.nvim_err_writeln("No action: " .. action)
+      api.nvim_err_writeln("No action: " .. tostring(action))
     end
   end
 
+  local old_cwd
+
+  if job.recipe.cwd then
+    old_cwd = vim.fn.getcwd()
+    vim.cmd("noau cd " .. job.recipe.cwd)
+  end
+
+  local action = job.recipe.action
+
+  local stat, err = pcall(execute_action, action)
+
+  if not stat then
+    api.nvim_err_writeln("Failed to execute recipe actions: " .. err)
+  end
+
+  if old_cwd then
+    vim.cmd("noau cd " .. old_cwd)
+  end
   job_names[job.key] = nil
   job[id] = nil
   job_count = job_count - 1

@@ -9,6 +9,7 @@ M.options = {
   --- @field width number
   --- @field type string
   --- @field border string
+  --- @field adapter table
   term = {
     height = 0.7,
     width = 0.5,
@@ -18,6 +19,7 @@ M.options = {
   actions = {
     qf = function(data, cmd, s) util.qf(data, cmd, "c", s) end,
     loc = function(data, cmd, s) util.qf(data, cmd, "l", s) end,
+    dap = require "recipe.dap".launch,
     notify = util.notify,
   },
   recipes_file = "recipes.json",
@@ -27,6 +29,13 @@ M.options = {
   hooks = {
     pre = { function() vim.cmd(":wa") end }
 
+  },
+  adapters = {
+    cargo={
+      type = "executable",
+      command = "lldb-vscode",
+      name = "recipe-lldb",
+    }
   }
 }
 
@@ -35,13 +44,16 @@ function M.setup(config)
   api.nvim_exec (string.format ([[
     augroup Recipe
     au!
-    au DirChanged,VimEnter,TabEnter * lua require"recipe".load_recipes()
-    au BufWritePost %s lua require"recipe".load_recipes(true)
+    au DirChanged,VimEnter,TabEnter * lua require"recipe".load_recipes(false)
+    au BufWritePost %s lua require"recipe".load_recipes(true, vim.fn.expand("%%:p"))
     augroup END
   ]], fn.fnameescape(M.options.recipes_file)), false)
 
-
-  setmetatable(M.options.custom_recipes, M.options.custom_recipes)
+  for k,v in pairs(M.options.custom_recipes) do
+    for name,recipe in pairs(v) do
+      v[name] = util.make_recipe(recipe)
+    end
+  end
 end
 
 return M

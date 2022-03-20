@@ -4,7 +4,7 @@ local filetypes = {
     check = 'cargo check --bins --examples -q',
     clippy = 'cargo clippy -q',
     clean = 'clean -q',
-    run = { 'cargo run', interactive = true } ,
+    run = { cmd = 'cargo run', interactive = true } ,
     test = 'cargo test -q --all-features',
     doc = 'cargo doc -q --open',
   },
@@ -26,11 +26,6 @@ local filetypes = {
   svelte = {
     run = { cmd='npm run dev -- --open', interactive=true },
   },
-  __index = function()
-    return {}
-  end
 }
-
-setmetatable(filetypes, filetypes)
 
 return filetypes

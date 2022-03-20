@@ -8,7 +8,13 @@
     "cmd": "python",
     "interactive": true
   },
-  "luacheck": "lua %",
+  "luacheck": {
+    "cmd": "luac %",
+    "action": [
+      "notify",
+      "qf"
+    ]
+  },
   "lua-repl": {
     "cmd": "lua",
     "interactive": true
