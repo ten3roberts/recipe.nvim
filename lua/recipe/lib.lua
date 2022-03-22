@@ -223,7 +223,7 @@ function M.execute(key, recipe)
   local id
   local term
 
-  local cmd = recipe.cmd:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)
+  local cmd = recipe.raw and recipe.cmd or recipe.cmd:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)
 
   if M.focus(key) then
     return

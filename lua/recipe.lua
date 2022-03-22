@@ -99,8 +99,8 @@ end
 function M.bake(name)
   local custom = config.options.custom_recipes
   local recipe = M.recipe(name)
-  or custom.global[name] or {}
-  or custom[vim.o.ft][name]
+  or custom.global[name]
+  or (custom[vim.o.ft] or {})[name]
 
   if type(recipe) == "string" then
     lib.execute(name, lib.make_recipe(recipe))

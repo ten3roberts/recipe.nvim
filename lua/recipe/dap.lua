@@ -22,7 +22,6 @@ function M.launch(_, recipe, code, opts)
   end
   M.setup()
   local compiler = util.get_compiler(recipe.cmd)
-  local config = require "recipe.config"
   local conf = vim.tbl_extend ("force", {
     type="recipe-" .. compiler,
     request = "launch",

@@ -117,6 +117,8 @@ M.config = {
 To get an indicator or a running job, simply include `recipe.statusline` on your
 statusline.
 
+## Debugging
+
 ## Security
 
 It is not always a safe to be able to execute arbitrary commands which are
