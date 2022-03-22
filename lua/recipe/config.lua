@@ -33,7 +33,9 @@ M.options = {
 
   },
   adapters = {
-    cargo=adapters.codelldb,
+    cargo = adapters.codelldb,
+    cmake = adapters.codelldb,
+    make  = adapters.codelldb,
   }
 }
 
@@ -48,7 +50,8 @@ function M.setup(config)
     augroup END
   ]], fn.fnameescape(M.options.recipes_file)), false)
 
-  for k,v in pairs(M.options.custom_recipes) do
+  -- Expand custom recipes
+  for _,v in pairs(M.options.custom_recipes) do
     for name,recipe in pairs(v) do
       v[name] = util.make_recipe(recipe)
     end

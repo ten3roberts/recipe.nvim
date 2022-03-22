@@ -13,6 +13,7 @@ end
 
 --- @class recipe
 --- @field cmd string
+--- @field cwd string
 --- @field interactive boolean
 --- @field action string|function
 M.default_recipe = {
