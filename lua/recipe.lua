@@ -39,6 +39,8 @@ M.stop_all = lib.stop_all
 function M.load_recipes(force, path)
   path = path or config.options.recipes_file
   local cwd = fn.fnamemodify(path, ":p:h");
+  local old_cwd = fn.getcwd()
+  api.nvim_set_current_dir(cwd)
 
   if not force and loaded_paths[cwd] ~= nil then
     return
@@ -83,6 +85,7 @@ function M.load_recipes(force, path)
         end
 
         vim.notify(string.format("Loaded %d recipes", c))
+        api.nvim_set_current_dir(cwd)
       end))
     end)
   end))

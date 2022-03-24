@@ -15,13 +15,18 @@ end
 --- @field cmd string
 --- @field cwd string
 --- @field interactive boolean
---- @field action string|function
+--- @field restart boolean
+--- @field action string|function|List|action
 M.default_recipe = {
   interactive = false,
   action = "qf",
   uses = 0,
   last_access = 0
 }
+
+--- @class action
+--- @field name string
+--- @field opts table
 
 function M.make_recipe(recipe, interactive)
   if type(recipe) == "string" then
@@ -39,8 +44,8 @@ function M.make_recipe(recipe, interactive)
   end
 end
 
-function M.vim_qf(data, recipe, ty, status)
-  if status == 0 or status == 130 then
+function M.vim_qf(data, recipe, ty, ok)
+  if ok then
     vim.fn.setqflist({}, "r", {})
     vim.cmd (ty .. "close")
     return;
@@ -79,8 +84,8 @@ function M.vim_qf(data, recipe, ty, status)
   end
 end
 
-function M.nvim_qf(data, recipe, ty, status)
-  if status == 0 or status == 130 then
+function M.nvim_qf(data, recipe, ty, ok)
+  if ok == 0  then
     return require("qf").close "c"
   end
 
@@ -98,8 +103,9 @@ function M.nvim_qf(data, recipe, ty, status)
   require("qf").set(ty, {
     title = cmd,
     compiler = compiler,
+    cwd = recipe.cwd,
     lines = data,
-    open = status ~= 0
+    open = not ok
   })
 end
 

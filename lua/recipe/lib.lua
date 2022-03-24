@@ -111,23 +111,29 @@ _G.__recipe_read = function(id, data)
   end
 end
 
+local success_codes = {
+  [0] = true,
+  [130] = true, -- SIGINT
+  [129] = true -- SIGTERM
+}
+
 _G.__recipe_exit = function(id, code)
   local job = jobs[id]
+
+  local success = success_codes[code] or false
 
   if not job.recipe.interactive then
     local duration = (uv.hrtime() - job.start_time) / 1000000
 
     local state = code == 0 and "Success" or string.format("Failure %d", code)
 
-
-    vim.notify(string.format("%s: %q %s", state, job.recipe.cmd,
+    vim.notify(string.format("%s: %q %s", state, job.key,
       M.format_time(duration)))
   end
 
-  if code == 0 and job.term then
+  if success and job.term then
     api.nvim_buf_delete(job.term.buf, {})
   end
-
 
   local function execute_action(action, opts)
     if type(action) == "table" then
@@ -138,16 +144,13 @@ _G.__recipe_exit = function(id, code)
       else
         execute_action(action.name, action.opts)
       end
-
       return
     end
 
-
-
     local f = config.options.actions[action] or action
     if type(f) == "function" then
-      f(job.data or "", job.recipe, code, opts)
-    else
+      f(job.data or "", job.recipe, success, opts)
+    elseif f ~= "" then
       api.nvim_err_writeln("No action: " .. tostring(action))
     end
   end
@@ -156,7 +159,7 @@ _G.__recipe_exit = function(id, code)
 
   if job.recipe.cwd then
     old_cwd = vim.fn.getcwd()
-    vim.cmd("noau cd " .. job.recipe.cwd)
+    api.nvim_set_current_dir(job.recipe.cwd)
   end
 
   local action = job.recipe.action
@@ -168,7 +171,7 @@ _G.__recipe_exit = function(id, code)
   end
 
   if old_cwd then
-    vim.cmd("noau cd " .. old_cwd)
+    api.nvim_set_current_dir(job.recipe.cwd)
   end
   job_names[job.key] = nil
   job[id] = nil
@@ -184,12 +187,13 @@ vim.api.nvim_exec( [[
   endfun
 ]], false)
 
-function M.focus(key)
-  local job = job_names[key]
-  if not job then
-    return false
-  end
 
+function M.runnning(key)
+  local job = job_names[key]
+  return job
+end
+
+function M.focus(job)
   if job.term then
     local win = fn.bufwinid(job.term.buf)
     if win ~= -1 then
@@ -225,8 +229,14 @@ function M.execute(key, recipe)
 
   local cmd = recipe.raw and recipe.cmd or recipe.cmd:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)
 
-  if M.focus(key) then
-    return
+  local job = M.runnning(key)
+  if job then
+    if recipe.restart then
+      fn.jobstop(job.id)
+      fn.jobwait({job.id}, 1000)
+    else
+      return M.focus(job)
+    end
   end
 
   for _,hook in ipairs(config.options.hooks.pre) do
@@ -259,6 +269,7 @@ function M.execute(key, recipe)
   local job = {
     recipe = recipe,
     start_time = start_time,
+    id = id,
     term = term,
     data = {""},
     key = key,

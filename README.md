@@ -19,7 +19,12 @@ require "recipe".setup {}
 Run a recipe by name by simply
 
 ```lua
-require "recipe".bake(name)
+require "recipe".bake(my-name)
+```
+
+or
+```viml
+:Bake my-name
 ```
 
 If a recipe of the specified name is not loaded it will attempted to fallback to
@@ -27,7 +32,7 @@ a filetype default. This allows generic "lint" or "build" commands.
 
 ## Recipes
 
-Recipes define a task which is executec async in the shell, similar to "tasks"
+Recipes define a task which is executed async in the shell, similar to "tasks"
 in VSCode.
 
 Recipes can be either be defined globally, per filetype, or per project
@@ -37,8 +42,8 @@ To define global recipes, look at [Configuration](#Configuration).
 Per-project recipes are defined in `recipes.json` in the current working
 directory and will be loaded automatically if trusted (More on that later).
 
-Each recipe defined in json can either be a string specifying a shell command, or a table for
-additional options.
+Each recipe defined in json can either be a string specifying a shell command,
+or a table for additional options.
 
 Any filename modifiers such as `%`, `<cfile>`, and others will be expanded
 before the command is executed, which can be used to execute file specific
@@ -50,13 +55,11 @@ All recipes are a lua table consiting of
     useful for running your program
   - *action* - Execute a function by ref or name (as specified in
     `config.actions`)
-
-Use `recipe.lib.make_recipe(cmd, [interactive = false])` to easily create a
-command using sane defaults.
+  - *cwd* - Working directory to run the recipe in
+  - *restart* - Restart recipe instead of focusing it
 
 Recipe invocations are idempotent, so multiple of the same build invocations
-won't be run at the same time. If a recipe uses expansion, the expanded command
-is used to determine idempotency.
+won't be run at the same time.
 
 If a recipe is interactive and is run again, the terminal will be focused or
 created again. This is very useful for a REPL which can be closed, reopened, or
@@ -112,12 +115,48 @@ M.config = {
 }
 ```
 
+## Debugging
+
+Recipe supports launching a DAP debugging session on a successful build.
+
+```json
+{
+  "debug-rust": {
+    "cmd": "cargo build",
+    "action": { "name:" "dap", "opts:" { "program": "./target/debug/myprogram" } }
+  }
+}
+```
+
+### Adapter
+
+If no adapter is specified it will be guessed based on the compiler.
+
+For rust (cargo) and C/C++ (make, cmake) the `CodeLLDB` adapter is used.
+In lieu of a debug adapter installer `CodeLLDB` will be installed automatically.
+
+If you wish to include other default adapters I will more than kindly accept a
+PR.
+
+Otherwise a custom adapter or other options can be specified in the same way as
+`dap.run`
+
+## Repl and Interactive Programs
+
+By setting `"interactive": true` the recipe will be launched in a terminal
+according to `config.term`.
+
+If a running job is executed again, the terminal window will be focused or
+opened again. By setting a keybinding to either `:Bake my-recipe` or `:RecipePick` (for a frecency sorted popup) you can quickly define your own project defined repls.
+Sometimes it is useful to quickly restart a program each time instead of focusing, for example when developing a server, where you need to rebuild and restart.
+
+This is accomplished by setting `"restart": true` and works for both interactive
+and non-interactive programs.
+
 ## Statusline
 
 To get an indicator or a running job, simply include `recipe.statusline` on your
 statusline.
-
-## Debugging
 
 ## Security
 

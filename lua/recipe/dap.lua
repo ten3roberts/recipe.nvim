@@ -16,14 +16,15 @@ end
 --- @param _ string
 --- @param recipe recipe
 --- @param opts table
-function M.launch(_, recipe, code, opts)
-  if code ~= 0 then
+function M.launch(_, recipe, ok, opts)
+  if not ok then
     return
   end
+
   M.setup()
   local compiler = util.get_compiler(recipe.cmd)
   local conf = vim.tbl_extend ("force", {
-    type=opts.adapter or ("recipe-" .. compiler),
+    type=opts.adapter or ("recipe-" .. compiler:tolower()),
     request = "launch",
     cwd=recipe.cwd,
     name = "Recipe " .. recipe.cmd,
