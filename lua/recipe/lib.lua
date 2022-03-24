@@ -155,10 +155,9 @@ _G.__recipe_exit = function(id, code)
     end
   end
 
-  local old_cwd
+  local old_cwd = vim.fn.getcwd()
 
   if job.recipe.cwd then
-    old_cwd = vim.fn.getcwd()
     api.nvim_set_current_dir(job.recipe.cwd)
   end
 
@@ -171,8 +170,9 @@ _G.__recipe_exit = function(id, code)
   end
 
   if old_cwd then
-    api.nvim_set_current_dir(job.recipe.cwd)
+    api.nvim_set_current_dir(old_cwd)
   end
+
   job_names[job.key] = nil
   job[id] = nil
   job_count = job_count - 1
@@ -266,7 +266,7 @@ function M.execute(key, recipe)
     return
   end
 
-  local job = {
+  job = {
     recipe = recipe,
     start_time = start_time,
     id = id,

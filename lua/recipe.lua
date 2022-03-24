@@ -79,13 +79,15 @@ function M.load_recipes(force, path)
 
           c = c + 1
 
-          v = vim.tbl_extend("keep", util.make_recipe(v), { cwd = cwd })
+          -- v = vim.tbl_extend("keep", util.make_recipe(v), { cwd = cwd })
+          api.nvim_set_current_dir(cwd)
+          v.cwd = fn.fnamemodify(v.cwd or cwd, ":p")
 
           M.insert(k, v)
         end
 
         vim.notify(string.format("Loaded %d recipes", c))
-        api.nvim_set_current_dir(cwd)
+        api.nvim_set_current_dir(old_cwd)
       end))
     end)
   end))

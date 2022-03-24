@@ -103,7 +103,6 @@ function M.nvim_qf(data, recipe, ty, ok)
   require("qf").set(ty, {
     title = cmd,
     compiler = compiler,
-    cwd = recipe.cwd,
     lines = data,
     open = not ok
   })
