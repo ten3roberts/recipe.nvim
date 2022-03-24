@@ -131,7 +131,7 @@ _G.__recipe_exit = function(id, code)
       M.format_time(duration)))
   end
 
-  if success and job.term then
+  if code == 0 and job.term then
     api.nvim_buf_delete(job.term.buf, {})
   end
 
