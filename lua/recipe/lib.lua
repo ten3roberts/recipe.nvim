@@ -139,10 +139,10 @@ _G.__recipe_exit = function(id, code)
     if type(action) == "table" then
       if #action > 0 then
         for _,v in ipairs(action) do
-          execute_action(v, action.opts)
+          execute_action(v, action.opts or {})
         end
       else
-        execute_action(action.name, action.opts)
+        execute_action(action.name, action.opts or {})
       end
       return
     end

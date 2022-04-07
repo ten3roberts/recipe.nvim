@@ -104,6 +104,7 @@ function M.nvim_qf(data, recipe, ty, ok)
     title = cmd,
     compiler = compiler,
     lines = data,
+    tally = true,
     open = not ok
   })
 end
