@@ -47,7 +47,7 @@ end
 function M.vim_qf(data, recipe, ty, ok)
   if ok then
     vim.fn.setqflist({}, "r", {})
-    vim.cmd (ty .. "close")
+    vim.cmd(ty .. "close")
     return;
   end
   local cmd = recipe.cmd
@@ -85,10 +85,6 @@ function M.vim_qf(data, recipe, ty, ok)
 end
 
 function M.nvim_qf(data, recipe, ty, ok)
-  if ok == 0  then
-    return require("qf").close "c"
-  end
-
   local cmd = recipe.cmd
 
   local compiler = M.get_compiler(recipe.cmd)
