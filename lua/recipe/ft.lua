@@ -4,7 +4,7 @@ local filetypes = {
     check = 'cargo check --bins --examples -q',
     clippy = 'cargo clippy -q',
     clean = 'clean -q',
-    run = { cmd = 'cargo run', interactive = true } ,
+    run = { cmd = 'cargo run', interactive = true },
     test = 'cargo test -q --all-features',
     doc = 'cargo doc -q --open',
   },
@@ -24,7 +24,7 @@ local filetypes = {
     run = 'lua %',
   },
   svelte = {
-    run = { cmd='npm run dev -- --open', interactive=true },
+    run = { cmd = 'npm run dev -- --open', interactive = true },
   },
 }
 

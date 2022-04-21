@@ -86,7 +86,8 @@ local function open_term_win(opts, win)
     win = vim.api.nvim_get_current_win()
     api.nvim_win_set_buf(win, bufnr)
   elseif opts.type == "smart" then
-    local w, h = api.nvim_win_get_width(), api.nvim_win_get_height()
+    local font_lh_ratio = 0.3
+    local w, h = api.nvim_win_get_width(0) * font_lh_ratio, api.nvim_win_get_height(0)
     local cmd = (w > h) and "vsplit" or "split"
     vim.cmd(cmd)
     win = vim.api.nvim_get_current_win()
@@ -97,7 +98,8 @@ local function open_term_win(opts, win)
 
 
   if opts.jump_to_end then
-    api.nvim_win_set_cursor(win, { #api.nvim_buf_get_lines(bufnr, 1, -1, true) + 1, 3 })
+    vim.cmd "normal! G"
+    -- api.nvim_win_set_cursor(win, { #api.nvim_buf_get_lines(bufnr, 1, -1, true) + 1, 0 })
   end
 
   return { buf = bufnr, win = win }
