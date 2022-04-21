@@ -6,17 +6,19 @@ local util = require "recipe.util"
 local adapters = require("recipe.adapters")
 --- @class config
 M.options = {
-  --- @class term
-  --- @field height number
-  --- @field width number
-  --- @field type string
-  --- @field border string
-  --- @field adapter table
+  ---@class term
+  ---@field height number
+  ---@field width number
+  ---@field type string
+  ---@field border string
+  ---@field adapter table
+  ---@field jump_to_end boolean to the end/bottom of terminal
   term = {
     height = 0.7,
     width = 0.5,
-    type = "float",
-    border = "shadow"
+    type = "smart",
+    border = "shadow",
+    jump_to_end = true,
   },
   actions = {
     qf = function(data, cmd, s) util.qf(data, cmd, "c", s) end,
@@ -41,7 +43,7 @@ M.options = {
 
 function M.setup(config)
   M.options = vim.tbl_deep_extend("force", M.options, config or {})
-  api.nvim_exec (string.format ([[
+  api.nvim_exec(string.format([[
     augroup Recipe
     au!
     au DirChanged,VimEnter,TabEnter * lua require"recipe".load_recipes(false)
@@ -51,8 +53,8 @@ function M.setup(config)
   ]], fn.fnameescape(M.options.recipes_file)), false)
 
   -- Expand custom recipes
-  for _,v in pairs(M.options.custom_recipes) do
-    for name,recipe in pairs(v) do
+  for _, v in pairs(M.options.custom_recipes) do
+    for name, recipe in pairs(v) do
       v[name] = util.make_recipe(recipe)
     end
   end

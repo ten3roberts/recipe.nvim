@@ -10,7 +10,7 @@ local function remove_escape_codes(s)
 end
 
 function M.format_time(ms)
-  local d,h,m,s = 0, 0, 0, 0
+  local d, h, m, s = 0, 0, 0, 0
   d = math.floor(ms / 86400000)
   ms = ms % 86400000
 
@@ -25,22 +25,22 @@ function M.format_time(ms)
 
   local t = {}
   if d > 0 then
-    t[#t+1] = d .. "d"
+    t[#t + 1] = d .. "d"
   end
   if h > 0 then
-    t[#t+1] = h .. "h"
+    t[#t + 1] = h .. "h"
   end
   if m > 0 then
-    t[#t+1] =  m .. "m"
+    t[#t + 1] = m .. "m"
   end
   if s > 0 then
-    t[#t+1] = s .. "s"
+    t[#t + 1] = s .. "s"
   end
 
   return table.concat(t, " ")
 end
 
-local function open_term_win(bufnr, opts)
+local function open_term_win(opts, win)
   local lines = vim.o.lines
   local cols = vim.o.columns
   local cmdheight = vim.o.cmdheight
@@ -51,30 +51,32 @@ local function open_term_win(bufnr, opts)
   local row = math.ceil((lines - height) / 2 - cmdheight)
   local col = math.ceil((cols - width) / 2)
 
-  local win
-  if opts.type == "float" then
+
+  local bufnr = api.nvim_create_buf(true, true)
+
+  if win then
+    vim.notify("Using existing win")
+    api.nvim_win_set_buf(win, bufnr)
+  elseif opts.type == "float" then
     win = api.nvim_open_win(bufnr, true,
-    {
-        relative='editor',
+      {
+        relative = 'editor',
         row = row,
         col = col,
-        height=height,
-        width=width,
+        height = height,
+        width = width,
         border = opts.border,
       })
 
-    local key = "__recipe_float_close" .. win
     local function close()
       if api.nvim_win_is_valid(win) and api.nvim_get_current_win() ~= win then
         api.nvim_win_close(win, false)
-        _G[key] = nil
       end
     end
 
-    _G[key] = close
-
-    vim.cmd(string.format("autocmd WinLeave <buffer=%d> :lua vim.defer_fn(_G[%q], 100)", bufnr, key))
-
+    vim.api.nvim_create_autocmd("WinLeave", { callback = function()
+      vim.defer_fn(close, 100);
+    end, buffer = bufnr })
   elseif opts.type == "split" then
     vim.cmd("split")
     win = vim.api.nvim_get_current_win()
@@ -83,11 +85,22 @@ local function open_term_win(bufnr, opts)
     vim.cmd("vsplit")
     win = vim.api.nvim_get_current_win()
     api.nvim_win_set_buf(win, bufnr)
+  elseif opts.type == "smart" then
+    local w, h = api.nvim_win_get_width(), api.nvim_win_get_height()
+    local cmd = (w > h) and "vsplit" or "split"
+    vim.cmd(cmd)
+    win = vim.api.nvim_get_current_win()
+    api.nvim_win_set_buf(win, bufnr)
   else
     api.nvim_err_writeln("Recipe: Unknown terminal mode " .. opts.type)
   end
 
-  return { buf = bufnr, win = win}
+
+  if opts.jump_to_end then
+    api.nvim_win_set_cursor(win, { #api.nvim_buf_get_lines(bufnr, 1, -1, true) + 1, 3 })
+  end
+
+  return { buf = bufnr, win = win }
 end
 
 local job_count = 0
@@ -105,7 +118,7 @@ _G.__recipe_read = function(id, data)
   local d = remove_escape_codes(data[1])
   jdata[jlen] = jdata[jlen] .. d
 
-  for i=2,#data do
+  for i = 2, #data do
     local s = remove_escape_codes(data[i])
     table.insert(jdata, s)
   end
@@ -138,7 +151,7 @@ _G.__recipe_exit = function(id, code)
   local function execute_action(action, opts)
     if type(action) == "table" then
       if #action > 0 then
-        for _,v in ipairs(action) do
+        for _, v in ipairs(action) do
           execute_action(v, action.opts or {})
         end
       else
@@ -178,7 +191,7 @@ _G.__recipe_exit = function(id, code)
   job_count = job_count - 1
 end
 
-vim.api.nvim_exec( [[
+vim.api.nvim_exec([[
   function! RecipeJobRead(j,d,e)
   call v:lua.__recipe_read(a:j, a:d)
   endfun
@@ -232,20 +245,32 @@ function M.execute(key, recipe)
   local job = M.runnning(key)
   if job then
     if recipe.restart then
+
+      -- Reuse window if open
+      if job.term then
+        local win = fn.bufwinid(job.term.buf)
+        if win ~= -1 then
+          vim.notify("Reusing term win: " .. win)
+          term = open_term_win(config.options.term, win)
+        end
+      end
+
       fn.jobstop(job.id)
-      fn.jobwait({job.id}, 1000)
+      fn.jobwait({ job.id }, 1000)
     else
       return M.focus(job)
     end
   end
 
-  for _,hook in ipairs(config.options.hooks.pre) do
+  for _, hook in ipairs(config.options.hooks.pre) do
     hook(recipe)
   end
 
   if recipe.interactive then
-    local buf = api.nvim_create_buf(true, true)
-    term = open_term_win(buf, config.options.term)
+    if term == nil then term = open_term_win(config.options.term) end
+
+    api.nvim_set_current_win(term.win)
+
     id = vim.fn.termopen(cmd, {
       cwd = recipe.cwd,
       on_stdout = "RecipeJobRead",
@@ -271,7 +296,7 @@ function M.execute(key, recipe)
     start_time = start_time,
     id = id,
     term = term,
-    data = {""},
+    data = { "" },
     key = key,
   }
 

@@ -28,7 +28,7 @@ local codelldb = function(on_adapter)
         type = 'server',
         host = '127.0.0.1',
         port = port
-      }) end, 1000);
+      }) end, 2000);
 
     stdout:read_start(function(err, chunk)
       assert(not err, err)
