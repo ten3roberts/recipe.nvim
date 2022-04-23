@@ -40,7 +40,7 @@ function M.format_time(ms)
   return table.concat(t, " ")
 end
 
-local function open_term_win(opts, win)
+local function open_term_win(opts, win, bufnr)
   local lines = vim.o.lines
   local cols = vim.o.columns
   local cmdheight = vim.o.cmdheight
@@ -52,7 +52,7 @@ local function open_term_win(opts, win)
   local col = math.ceil((cols - width) / 2)
 
 
-  local bufnr = api.nvim_create_buf(true, true)
+  bufnr = bufnr or api.nvim_create_buf(true, true)
 
   if win then
     vim.notify("Using existing win")
@@ -96,11 +96,6 @@ local function open_term_win(opts, win)
     api.nvim_err_writeln("Recipe: Unknown terminal mode " .. opts.type)
   end
 
-
-  if opts.jump_to_end then
-    vim.cmd "normal! G"
-    -- api.nvim_win_set_cursor(win, { #api.nvim_buf_get_lines(bufnr, 1, -1, true) + 1, 0 })
-  end
 
   return { buf = bufnr, win = win }
 end
@@ -214,7 +209,7 @@ function M.focus(job)
     if win ~= -1 then
       api.nvim_set_current_win(win)
     else
-      open_term_win(job.term.buf, config.options.term)
+      open_term_win(config.options.term, nil, job.term.buf)
     end
   end
 
@@ -244,6 +239,10 @@ function M.execute(key, recipe)
 
   local cmd = recipe.raw and recipe.cmd or recipe.cmd:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)
 
+  for _, hook in ipairs(config.options.hooks.pre) do
+    hook(recipe)
+  end
+
   local job = M.runnning(key)
   if job then
     if recipe.restart then
@@ -264,10 +263,6 @@ function M.execute(key, recipe)
     end
   end
 
-  for _, hook in ipairs(config.options.hooks.pre) do
-    hook(recipe)
-  end
-
   if recipe.interactive then
     if term == nil then term = open_term_win(config.options.term) end
 
@@ -279,6 +274,7 @@ function M.execute(key, recipe)
       on_exit = "RecipeJobExit",
       on_stderr = "RecipeJobRead",
     })
+
   else
     id = vim.fn.jobstart(cmd, {
       cwd = recipe.cwd,

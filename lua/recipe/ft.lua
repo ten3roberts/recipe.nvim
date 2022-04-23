@@ -8,6 +8,11 @@ local filetypes = {
     test = 'cargo test -q --all-features',
     doc = 'cargo doc -q --open',
   },
+  python = {
+    run = { cmd = "python %", interactive = true },
+    build = "python -m py_compile %",
+    check = "python -m py_compile %",
+  },
   glsl = {
     check = 'glslangValidator -V %'
   },
