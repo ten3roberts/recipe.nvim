@@ -251,7 +251,6 @@ function M.execute(key, recipe)
       if job.term then
         local win = fn.bufwinid(job.term.buf)
         if win ~= -1 then
-          vim.notify("Reusing term win: " .. win)
           term = open_term_win(config.options.term, win)
         end
       end
