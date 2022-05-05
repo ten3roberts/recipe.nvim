@@ -4,7 +4,8 @@ local fn = vim.fn
 local util = require "recipe.util"
 
 local adapters = require("recipe.adapters")
---- @class config
+---@class config
+---@field custom_recipes table<string, Recipe>
 M.options = {
   ---@class term
   ---@field height number
@@ -48,7 +49,6 @@ function M.setup(config)
     au!
     au DirChanged,VimEnter,TabEnter * lua require"recipe".load_recipes(false)
     au BufWritePost %s lua require"recipe".load_recipes(true, vim.fn.expand("%%:p"))
-    au ExitPre * RecipeAbort
     augroup END
   ]], fn.fnameescape(M.options.recipes_file)), false)
 

@@ -13,6 +13,7 @@ function M.setup(opts)
   config.setup(opts)
 end
 
+---@type table<string, Recipe>
 M.recipes = {}
 local loaded_paths = {}
 
@@ -27,7 +28,6 @@ end
 
 --- Execute a recipe by name
 --- @param name string
---- @param recipe recipe|string
 function M.insert(name, recipe)
   local t = util.make_recipe(recipe)
   M.recipes[name] = t
@@ -46,7 +46,7 @@ function M.load_recipes(force, path)
     return
   end
 
-  loaded_paths[cwd ] = true;
+  loaded_paths[cwd] = true;
 
   lib.read_file(path, vim.schedule_wrap(function(data)
     if not data or #data == 0 then
@@ -71,7 +71,7 @@ function M.load_recipes(force, path)
         local obj = fn.json_decode(data)
 
         local c = 0
-        for k,v in pairs(obj) do
+        for k, v in pairs(obj) do
           if type(k) ~= "string" then
             api.nvim_err_writeln("Expected string key in %q", path);
             return
@@ -94,18 +94,17 @@ function M.load_recipes(force, path)
 end
 
 --- Return a recipe by name
---- @return recipe|nil
+--- @return Recipe|nil
 function M.recipe(name)
   return M.recipes[name]
 end
-
 
 --- Execute a recipe asynchronously
 function M.bake(name)
   local custom = config.options.custom_recipes
   local recipe = M.recipe(name)
-  or custom.global[name]
-  or (custom[vim.o.ft] or {})[name]
+      or custom.global[name]
+      or (custom[vim.o.ft] or {})[name]
 
   if type(recipe) == "string" then
     lib.execute(name, lib.make_recipe(recipe))
@@ -132,29 +131,39 @@ local function recipe_score(recipe, now)
 end
 
 local function order()
+  -- Collect all
   local recipes = M.recipes
   local t = {}
-  for k,v in pairs(recipes) do
-    t[#t+1] = {k,v,1.0}
-  end
 
   local custom = config.options.custom_recipes
   local global = custom.global
-  for k,v in pairs(global) do
-    if not M.recipes[k] then
-      t[#t+1] = {k,v,0.5}
-    end
+
+  for k, v in pairs(custom[vim.o.ft] or {}) do
+    t[k] = { k, v, 0.25 }
   end
 
-  for k,v in pairs(custom[vim.o.ft] or {}) do
-    if not recipes[k] and not global[k] then
-      t[#t+1] = {k,v, 0.25}
-    end
+  for k, v in pairs(global) do
+    t[k] = { k, v, 0.5 }
+  end
+
+  for k, v in pairs(recipes) do
+    t[k] = { k, v, 1.0 }
+  end
+
+  local _, jobs = lib.active_jobs()
+  for _, v in pairs(jobs) do
+    t[v.key] = { v.key, v.recipe, 2.0 }
+  end
+
+  -- Collect into list
+  local items = {}
+  for _, v in pairs(t) do
+    items[#items + 1] = v
   end
 
   local now = vim.loop.hrtime() / 1000000000
-  table.sort(t, function(a,b) return recipe_score(a, now) > recipe_score(b, now) end)
-  return t
+  table.sort(items, function(a, b) return recipe_score(a, now) > recipe_score(b, now) end)
+  return items
 end
 
 function M.pick()
@@ -164,10 +173,15 @@ function M.pick()
     return
   end
 
+  local max_len = 0;
+  for _, v in ipairs(items) do
+    max_len = math.max(#v[1], max_len)
+  end
+
   local opts = {
     format_item = function(val)
-      return
-      string.format("%s %s - %s", lib.is_active( val[1] ) and "*" or " ", val[1], val[2].cmd or val[2])
+      local pad = string.rep(" ", math.max(max_len - #val[1]))
+      return string.format("%s %s%s - %s", lib.is_active(val[1]) and "*" or " ", val[1], pad, val[2].cmd or val[2])
     end,
   }
 
@@ -183,15 +197,14 @@ end
 function M.complete(lead, _, _)
   local t = {}
 
-  for _,k in ipairs(order()) do
+  for _, k in ipairs(order()) do
     if k[1]:find(lead) then
-      t[#t+1] = k[1]
+      t[#t + 1] = k[1]
     end
   end
 
   return t
 end
-
 
 local sl = require "recipe.statusline"
 function M.statusline()
@@ -208,7 +221,7 @@ end
 
 _G.__recipe_complete = M.complete
 
-api.nvim_exec( [[
+api.nvim_exec([[
   function! RecipeComplete(lead, cmd, cur)
     return v:lua.__recipe_complete(a:lead, a:cmd, a:cur)
   endfun

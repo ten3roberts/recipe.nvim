@@ -60,13 +60,13 @@ local function open_term_win(opts, win, bufnr)
   elseif opts.type == "float" then
     win = api.nvim_open_win(bufnr, true,
       {
-        relative = 'editor',
-        row = row,
-        col = col,
-        height = height,
-        width = width,
-        border = opts.border,
-      })
+      relative = 'editor',
+      row = row,
+      col = col,
+      height = height,
+      width = width,
+      border = opts.border,
+    })
 
     local function close()
       if api.nvim_win_is_valid(win) and api.nvim_get_current_win() ~= win then
@@ -100,6 +100,13 @@ local function open_term_win(opts, win, bufnr)
   return { buf = bufnr, win = win }
 end
 
+---@class Job
+---@field recipe Recipe
+---@field start_time number
+---@field id number
+---@field term number|nil
+---@field data string[]
+---@field key string
 local job_count = 0
 local jobs = {}
 local job_names = {}
@@ -184,9 +191,10 @@ _G.__recipe_exit = function(id, code)
   end
 
   job_names[job.key] = nil
-  job[id] = nil
+  jobs[id] = nil
   job_count = job_count - 1
 end
+
 
 vim.api.nvim_exec([[
   function! RecipeJobRead(j,d,e)
@@ -217,7 +225,7 @@ function M.focus(job)
 end
 
 function M.active_jobs()
-  return job_count
+  return job_count, jobs
 end
 
 function M.is_active(key)

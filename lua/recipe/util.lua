@@ -11,7 +11,7 @@ function M.get_compiler(cmd)
   end
 end
 
---- @class recipe
+--- @class Recipe
 --- @field cmd string
 --- @field cwd string
 --- @field interactive boolean
