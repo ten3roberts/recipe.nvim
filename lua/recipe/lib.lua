@@ -55,7 +55,6 @@ local function open_term_win(opts, win, bufnr)
   bufnr = bufnr or api.nvim_create_buf(true, true)
 
   if win then
-    vim.notify("Using existing win")
     api.nvim_win_set_buf(win, bufnr)
   elseif opts.type == "float" then
     win = api.nvim_open_win(bufnr, true,
