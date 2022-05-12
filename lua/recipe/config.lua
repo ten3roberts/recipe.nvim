@@ -1,6 +1,5 @@
 local M = {}
 local api = vim.api
-local fn = vim.fn
 local util = require "recipe.util"
 
 local adapters = require("recipe.adapters")
@@ -44,13 +43,15 @@ M.options = {
 
 function M.setup(config)
   M.options = vim.tbl_deep_extend("force", M.options, config or {})
-  api.nvim_exec(string.format([[
-    augroup Recipe
-    au!
-    au DirChanged,VimEnter,TabEnter * lua require"recipe".load_recipes(false)
-    au BufWritePost %s lua require"recipe".load_recipes(true, vim.fn.expand("%%:p"))
-    augroup END
-  ]], fn.fnameescape(M.options.recipes_file)), false)
+
+  -- api.nvim_exec(string.format([[
+  --   augroup Recipe
+  --   au!
+  --   au DirChanged,VimEnter,TabEnter * lua require"recipe".load_recipes(false)
+  --   au BufWritePost %s lua require"recipe".load_recipes(true, vim.fn.expand("%%:p"))
+  --   au TermEnter
+  --   augroup END
+  -- ]], fn.fnameescape(M.options.recipes_file)), false)
 
   -- Expand custom recipes
   for _, v in pairs(M.options.custom_recipes) do

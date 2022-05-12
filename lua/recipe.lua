@@ -11,6 +11,26 @@ local M = {}
 --- @param opts config
 function M.setup(opts)
   config.setup(opts)
+
+  local group = api.nvim_create_augroup("Recipe", { clear = true })
+  local function au(event, o)
+    o.group = group
+    api.nvim_create_autocmd(event, o)
+  end
+
+  au({ "DirChanged", "VimEnter" }, { callback = function()
+    M.load_recipes(false)
+  end })
+
+  au({ "BufWritePost" }, { pattern = config.options.recipes_file, callback = function(o)
+    M.load_recipes(true, o.file)
+  end })
+
+  if config.options.term.jump_to_end then
+    au("TermOpen", { callback = function()
+      vim.cmd "normal! G"
+    end })
+  end
 end
 
 ---@type table<string, Recipe>
