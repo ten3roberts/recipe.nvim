@@ -40,7 +40,8 @@ function M.format_time(ms)
   return table.concat(t, " ")
 end
 
-local function open_term_win(opts, win, bufnr)
+local function open_term_win(win, bufnr)
+  local opts = config.options.term
   local lines = vim.o.lines
   local cols = vim.o.columns
   local cmdheight = vim.o.cmdheight
@@ -101,6 +102,7 @@ end
 
 ---@class Job
 ---@field recipe Recipe
+---@field running boolean
 ---@field start_time number
 ---@field id number
 ---@field term number|nil
@@ -141,14 +143,38 @@ _G.__recipe_exit = function(id, code)
   if not job.recipe.interactive then
     local duration = (uv.hrtime() - job.start_time) / 1000000
 
+    local level = code == 0 and vim.log.levels.INFO or vim.log.levels.ERROR;
+
     local state = code == 0 and "Success" or string.format("Failure %d", code)
 
+
     vim.notify(string.format("%s: %q %s", state, job.key,
-      M.format_time(duration)))
+      M.format_time(duration)), level)
   end
 
-  if (code == 0 or code == 129) and job.term then
-    api.nvim_buf_delete(job.term.buf, {})
+
+  job.running = false
+
+  local stay = job.recipe.stay ~= nil and job.recipe.stay or config.options.term.stay
+  if job.term == nil or (not stay and (code == 0 or code == 129)) then
+    job_names[job.key] = nil
+    jobs[id] = nil
+    if job.term then
+      api.nvim_buf_delete(job.term.buf, {})
+      job.term = nil
+    end
+  else
+    local buf = job.term.buf
+    api.nvim_create_autocmd("WinClosed", {
+      callback = function()
+        api.nvim_buf_delete(buf, {})
+        job.term = nil
+
+        job_names[job.key] = nil
+        jobs[id] = nil
+      end,
+      buffer = buf
+    })
   end
 
   local function execute_action(action, opts)
@@ -189,8 +215,6 @@ _G.__recipe_exit = function(id, code)
     api.nvim_set_current_dir(old_cwd)
   end
 
-  job_names[job.key] = nil
-  jobs[id] = nil
   job_count = job_count - 1
 end
 
@@ -205,7 +229,7 @@ vim.api.nvim_exec([[
 ]], false)
 
 
-function M.runnning(key)
+function M.find_active(key)
   local job = job_names[key]
   return job
 end
@@ -216,7 +240,7 @@ function M.focus(job)
     if win ~= -1 then
       api.nvim_set_current_win(win)
     else
-      open_term_win(config.options.term, nil, job.term.buf)
+      open_term_win(nil, job.term.buf)
     end
   end
 
@@ -250,27 +274,30 @@ function M.execute(key, recipe)
     hook(recipe)
   end
 
-  local job = M.runnning(key)
+  local job = M.find_active(key)
   if job then
-    if recipe.restart then
-
-      -- Reuse window if open
-      if job.term then
-        local win = fn.bufwinid(job.term.buf)
-        if win ~= -1 then
-          term = open_term_win(config.options.term, win)
-        end
-      end
+    if not job.running or recipe.restart then
 
       fn.jobstop(job.id)
       fn.jobwait({ job.id }, 1000)
+
+      -- Reuse window if the old jobs terminal exists and is visible
+      if job.term then
+        local term_buf = job.term.buf
+        local win = fn.bufwinid(term_buf)
+        if win ~= -1 then
+          term = open_term_win(win)
+        end
+        -- Remove old buffer
+        api.nvim_buf_delete(term_buf, {})
+      end
     else
       return M.focus(job)
     end
   end
 
   if recipe.interactive then
-    if term == nil then term = open_term_win(config.options.term) end
+    term = term or open_term_win()
 
     api.nvim_set_current_win(term.win)
 
@@ -297,6 +324,29 @@ function M.execute(key, recipe)
 
   job = {
     recipe = recipe,
+    start_time = start_time,
+    id = id,
+    term = term,
+    data = { "" },
+    key = key,
+  }
+
+  recipe.uses = recipe.uses + 1
+  recipe.last_access = uv.hrtime() / 1000000000
+
+  jobs[id] = job
+  job_names[key] = job
+  job_count = job_count + 1
+
+
+  if id <= 0 then
+    api.nvim_err_writeln("Failed to start job")
+    return
+  end
+
+  job = {
+    recipe = recipe,
+    running = true,
     start_time = start_time,
     id = id,
     term = term,

@@ -90,7 +90,8 @@ M.config = {
     height = 0.7,
     width = 0.5,
     type = "float", -- | "split" | "vsplit"
-    border = "shadow"
+    border = "shadow",
+    stay = false, -- Keep terminals open, can be overridden in `recipe`
   },
   -- Specify your own actions as a function
   -- These are then used in `recipe.action`
@@ -110,6 +111,7 @@ M.config = {
     global = {
       open = make_recipe("xdg-open %:h"),
       open_f = make_recipe("xdg-open <cfile>")
+      term = { cmd = vim.env.SHELL, interactive = true }
     }
   }
 }
@@ -153,9 +155,44 @@ Sometimes it is useful to quickly restart a program each time instead of focusin
 This is accomplished by setting `"restart": true` and works for both interactive
 and non-interactive programs.
 
+## Ad-hoc recipes
+
+While predeclared project wise recipes are useful, it is sometimes necessary to
+execute an arbitrary command.
+
+For this, the vim `Ex` and `ExI` commands are provided for background and
+interactive jobs.
+
+A more complicated recipe can also be executed directly by `recipe.execute`.
+
+```lua
+require "recipe".execute { cmd = "cargo add tokio -F all", interactive = true }
+```
+
+This is useful for plugins executing commands on behalf of `recipe`.
+
+## Persistent terminals
+
+Due to the refocusing of running jobs, persisent terminals are easy.
+
+`ExI $SHELL`
+
+or
+
+`ExI cargo test` for a pesistent rust testing terminal.
+
+Or why not
+
+```lua
+require "recipe".execute { cmd = "cargo run", interactive = true, restart = true }
+```
+
+If these terminals are to be run from the pick menu, you can add them to the
+`custom_recipes.global` table in [#Setup]
+
 ## Statusline
 
-To get an indicator or a running job, simply include `recipe.statusline` on your
+To get an indicator of running jobs, simply include `recipe.statusline` on your
 statusline.
 
 ## Security

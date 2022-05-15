@@ -1,6 +1,40 @@
 local M = {}
 local fn = vim.fn
 
+---@class Recipe
+---@field cmd string
+---@field cwd string
+---@field interactive boolean
+---@field restart boolean
+---@field action string|function|action[]|action
+---@field stay boolean|nil Keep terminal open on success. Override config.stay
+M.default_recipe = {
+  interactive = false,
+  restart = false,
+  action = "qf",
+  uses = 0,
+  last_access = 0,
+  stay = nil
+}
+
+---@class action
+---@field name string
+---@field opts table
+--
+---@param recipe string|Recipe
+---@param interactive boolean|nil
+---@param stay boolea|nil
+---@tag recipe.make_recipe
+function M.make_recipe(recipe, interactive, stay)
+  if type(recipe) == "string" then
+    return vim.tbl_extend("force", M.default_recipe, { cmd = recipe, interactive = interactive, stay = stay })
+  elseif type(recipe) == "table" then
+    return vim.tbl_extend("force", M.default_recipe, recipe)
+  else
+    vim.api.nvim_err_writeln("Expected recipe to be string or table, found: " .. type(recipe))
+  end
+end
+
 function M.get_compiler(cmd)
   local rtp = vim.o.rtp
   for part in cmd:gmatch('%w*') do
@@ -8,39 +42,6 @@ function M.get_compiler(cmd)
     if compiler ~= "" then
       return part
     end
-  end
-end
-
---- @class Recipe
---- @field cmd string
---- @field cwd string
---- @field interactive boolean
---- @field restart boolean
---- @field action string|function|List|action
-M.default_recipe = {
-  interactive = false,
-  action = "qf",
-  uses = 0,
-  last_access = 0
-}
-
---- @class action
---- @field name string
---- @field opts table
-
-function M.make_recipe(recipe, interactive)
-  if type(recipe) == "string" then
-    return {
-      cmd = recipe,
-      interactive = interactive or false,
-      action = "qf",
-      uses = 0,
-      last_access = 0,
-    }
-  elseif type(recipe) == "table" then
-    return vim.tbl_extend("force", M.default_recipe, recipe)
-  else
-    vim.api.nvim_err_writeln("Expected recipe to be string or table, found: " .. type(recipe))
   end
 end
 

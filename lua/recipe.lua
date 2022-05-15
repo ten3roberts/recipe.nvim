@@ -7,6 +7,7 @@ local config = require "recipe.config"
 
 local M = {}
 
+
 --- Provide a custom config
 --- @param opts config
 function M.setup(opts)
@@ -127,7 +128,7 @@ function M.bake(name)
       or (custom[vim.o.ft] or {})[name]
 
   if type(recipe) == "string" then
-    lib.execute(name, lib.make_recipe(recipe))
+    lib.execute(name, util.make_recipe(recipe))
   elseif type(recipe) == "table" then
     lib.execute(name, recipe)
   else
@@ -135,12 +136,13 @@ function M.bake(name)
   end
 end
 
--- Execute an arbitrary command
--- @params cmd string
--- @params interactive bool
-function M.execute(cmd, interactive)
-  local t = util.make_recipe(cmd, interactive)
-  lib.execute(cmd, t)
+---Execute an arbitrary command
+---@param cmd string
+---@param interactive boolean|nil
+---@param stay boolean|nil
+function M.execute(cmd, interactive, stay)
+  local t = util.make_recipe(cmd, interactive, stay)
+  lib.execute(t.cmd, t)
 end
 
 local function recipe_score(recipe, now)
