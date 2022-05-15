@@ -1,39 +1,7 @@
 local M = {}
 local fn = vim.fn
 
----@class Recipe
----@field cmd string
----@field cwd string
----@field interactive boolean
----@field restart boolean
----@field action string|function|action[]|action
----@field keep_open boolean|nil Keep terminal open on success. Override config.stay
-M.default_recipe = {
-  interactive = false,
-  restart = false,
-  action = "qf",
-  uses = 0,
-  last_access = 0,
-  keep_open = nil
-}
 
----@class action
----@field name string
----@field opts table
---
----@param recipe string|Recipe
----@param interactive boolean|nil
----@param keep_open boolean|nil
----@tag recipe.make_recipe
-function M.make_recipe(recipe, interactive, keep_open)
-  if type(recipe) == "string" then
-    return vim.tbl_extend("force", M.default_recipe, { cmd = recipe, interactive = interactive, keep_open = keep_open })
-  elseif type(recipe) == "table" then
-    return vim.tbl_extend("force", M.default_recipe, recipe)
-  else
-    vim.api.nvim_err_writeln("Expected recipe to be string or table, found: " .. type(recipe))
-  end
-end
 
 function M.get_compiler(cmd)
   local rtp = vim.o.rtp

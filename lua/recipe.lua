@@ -50,7 +50,7 @@ end
 --- Execute a recipe by name
 --- @param name string
 function M.insert(name, recipe)
-  local t = util.make_recipe(recipe)
+  local t = config.make_recipe(recipe)
   M.recipes[name] = t
 end
 
@@ -100,7 +100,7 @@ function M.load_recipes(force, path)
 
           c = c + 1
 
-          v = util.make_recipe(v)
+          v = config.make_recipe(v)
           api.nvim_set_current_dir(cwd)
           v.cwd = fn.fnamemodify(v.cwd or cwd, ":p")
 
@@ -120,16 +120,14 @@ function M.recipe(name)
   return M.recipes[name]
 end
 
---- Execute a recipe asynchronously
+--- Execute a recipe by name asynchronously
 function M.bake(name)
   local custom = config.options.custom_recipes
   local recipe = M.recipe(name)
       or custom.global[name]
       or (custom[vim.o.ft] or {})[name]
 
-  if type(recipe) == "string" then
-    lib.execute(name, util.make_recipe(recipe))
-  elseif type(recipe) == "table" then
+  if type(recipe) == "table" then
     lib.execute(name, recipe)
   else
     api.nvim_err_writeln("No recipe: " .. name)
@@ -137,11 +135,9 @@ function M.bake(name)
 end
 
 ---Execute an arbitrary command
----@param cmd string
----@param interactive boolean|nil
----@param keep_open boolean|nil
-function M.execute(cmd, interactive, keep_open)
-  local t = util.make_recipe(cmd, interactive, keep_open)
+---@param cmd string|Recipe
+function M.execute(cmd)
+  local t = config.make_recipe(cmd)
   lib.execute(t.cmd, t)
 end
 
@@ -212,7 +208,7 @@ function M.pick()
 
     local r = items[idx]
     if not r then return end
-    M.execute(r[1])
+    lib.execute(r[1], r[2])
   end)
 end
 

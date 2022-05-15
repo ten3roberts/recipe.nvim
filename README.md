@@ -85,14 +85,13 @@ refocused.
 ## Configuration
 ```lua
 M.config = {
-  -- Configure the terminal for interctive commands
+  -- Configure the terminal for interactive commands
   term = {
     height = 0.7,
     width = 0.5,
-    type = "float", -- | "split" | "vsplit"
+    type = "smart", -- float | split | vsplit
     border = "shadow",
-    keep_open = false, -- Keep terminals open, can be overridden in `recipe`
-    focus = true,
+    jump_to_end = true,
   },
   -- Specify your own actions as a function
   -- These are then used in `recipe.action`
@@ -104,17 +103,26 @@ M.config = {
   -- Change the file for looking for recipes
   recipes_file = "recipes.json",
   --- Define custom global recipes, either globally or by filetype as key
-  --- use lib.make_recipe for conveniance
   custom_recipes = {
     rust = {
-      upgrade = make_recipe("cargo upgrade --workspace"),
+      upgrade = "cargo upgrade --workspace",
     },
     global = {
-      open = make_recipe("xdg-open %:h"),
-      open_f = make_recipe("xdg-open <cfile>")
+      open = "xdg-open %:h",
+      open_f = "xdg-open <cfile>"
       term = { cmd = vim.env.SHELL, interactive = true }
     }
-  }
+  },
+  -- Every recipe will be merged with the default to provide unspecified fields
+  default_recipe = {
+    interactive = false,
+    restart = false,
+    action = "qf",
+    uses = 0,
+    last_access = 0,
+    keep_open = false,
+    focus = true,
+  },
 }
 ```
 
