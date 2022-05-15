@@ -23,7 +23,7 @@ M.default_recipe = {
 --
 ---@param recipe string|Recipe
 ---@param interactive boolean|nil
----@param keep_open booleal|nil
+---@param keep_open boolean|nil
 ---@tag recipe.make_recipe
 function M.make_recipe(recipe, interactive, keep_open)
   if type(recipe) == "string" then

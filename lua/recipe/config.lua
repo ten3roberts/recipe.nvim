@@ -23,7 +23,7 @@ M.options = {
     border = "shadow",
     jump_to_end = true,
     keep_open = false,
-    focus = false,
+    focus = true,
   },
   actions = {
     qf = function(data, cmd, s) util.qf(data, cmd, "c", s) end,

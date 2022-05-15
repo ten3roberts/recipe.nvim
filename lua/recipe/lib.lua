@@ -140,29 +140,26 @@ _G.__recipe_exit = function(id, code)
 
   local success = success_codes[code] or false
 
-  if not job.recipe.interactive then
-    local duration = (uv.hrtime() - job.start_time) / 1000000
+  local duration = (uv.hrtime() - job.start_time) / 1000000
 
-    local level = code == 0 and vim.log.levels.INFO or vim.log.levels.ERROR;
+  local level = code == 0 and vim.log.levels.INFO or vim.log.levels.ERROR;
 
-    local state = code == 0 and "Success" or string.format("Failure %d", code)
+  local state = code == 0 and "Success" or string.format("Failure %d", code)
 
-
-    vim.notify(string.format("%s: %q %s", state, job.key,
-      M.format_time(duration)), level)
-  end
+  vim.notify(string.format("%s: %q %s", state, job.key,
+    M.format_time(duration)), level)
 
 
   job.running = false
 
   local keep_open = job.recipe.keep_open ~= nil and job.recipe.keep_open or config.options.term.keep_open
   if job.term == nil or (not keep_open and (code == 0 or code == 129)) then
-    job_names[job.key] = nil
-    jobs[id] = nil
     if job.term then
       api.nvim_buf_delete(job.term.buf, {})
       job.term = nil
     end
+    job_names[job.key] = nil
+    jobs[id] = nil
   else
     local buf = job.term.buf
     api.nvim_create_autocmd("WinClosed", {
@@ -252,7 +249,8 @@ function M.active_jobs()
 end
 
 function M.is_active(key)
-  return job_names[key] ~= nil
+  local job = job_names[key]
+  return (job and job.running == true) or false
 end
 
 function M.stop_all()
@@ -271,6 +269,8 @@ function M.execute(key, recipe)
   local cmd = recipe.raw and recipe.cmd or recipe.cmd:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)
 
 
+  local focus = recipe ~= nil and recipe.focus or config.options.term.focus
+
   local cur_win = api.nvim_get_current_win()
   for _, hook in ipairs(config.options.hooks.pre) do
     hook(recipe)
@@ -278,7 +278,7 @@ function M.execute(key, recipe)
 
   local job = M.find_active(key)
   if job then
-    if not job.running or recipe.restart then
+    if recipe.restart then
 
       fn.jobstop(job.id)
       fn.jobwait({ job.id }, 1000)
@@ -295,7 +295,7 @@ function M.execute(key, recipe)
       end
     else
       M.focus(job)
-      if (recipe.focus ~= nil and recipe.focus == false) or not config.options.focus then
+      if not focus then
         api.nvim_set_current_win(cur_win)
       end
       return
@@ -367,7 +367,7 @@ function M.execute(key, recipe)
   job_names[key] = job
   job_count = job_count + 1
 
-  if (recipe.focus ~= nil and recipe.focus == false) or not config.options.focus then
+  if not focus then
     api.nvim_set_current_win(cur_win)
   end
 end

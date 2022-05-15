@@ -212,7 +212,7 @@ function M.pick()
 
     local r = items[idx]
     if not r then return end
-    M.bake(r[1])
+    M.execute(r[1])
   end)
 end
 
