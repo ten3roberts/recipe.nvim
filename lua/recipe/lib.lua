@@ -155,8 +155,8 @@ _G.__recipe_exit = function(id, code)
 
   job.running = false
 
-  local stay = job.recipe.stay ~= nil and job.recipe.stay or config.options.term.stay
-  if job.term == nil or (not stay and (code == 0 or code == 129)) then
+  local keep_open = job.recipe.keep_open ~= nil and job.recipe.keep_open or config.options.term.keep_open
+  if job.term == nil or (not keep_open and (code == 0 or code == 129)) then
     job_names[job.key] = nil
     jobs[id] = nil
     if job.term then
@@ -270,6 +270,8 @@ function M.execute(key, recipe)
 
   local cmd = recipe.raw and recipe.cmd or recipe.cmd:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)
 
+
+  local cur_win = api.nvim_get_current_win()
   for _, hook in ipairs(config.options.hooks.pre) do
     hook(recipe)
   end
@@ -292,7 +294,11 @@ function M.execute(key, recipe)
         api.nvim_buf_delete(term_buf, {})
       end
     else
-      return M.focus(job)
+      M.focus(job)
+      if (recipe.focus ~= nil and recipe.focus == false) or not config.options.focus then
+        api.nvim_set_current_win(cur_win)
+      end
+      return
     end
   end
 
@@ -360,6 +366,10 @@ function M.execute(key, recipe)
   jobs[id] = job
   job_names[key] = job
   job_count = job_count + 1
+
+  if (recipe.focus ~= nil and recipe.focus == false) or not config.options.focus then
+    api.nvim_set_current_win(cur_win)
+  end
 end
 
 local trusted_paths = nil

@@ -91,7 +91,8 @@ M.config = {
     width = 0.5,
     type = "float", -- | "split" | "vsplit"
     border = "shadow",
-    stay = false, -- Keep terminals open, can be overridden in `recipe`
+    keep_open = false, -- Keep terminals open, can be overridden in `recipe`
+    focus = true,
   },
   -- Specify your own actions as a function
   -- These are then used in `recipe.action`
@@ -170,6 +171,9 @@ require "recipe".execute { cmd = "cargo add tokio -F all", interactive = true }
 ```
 
 This is useful for plugins executing commands on behalf of `recipe`.
+
+Use a `bang` `ExI!` or `{ keep_open = true }` to keep the terminal open after
+a successful command. Can also be overridden in [#Setup]
 
 ## Persistent terminals
 

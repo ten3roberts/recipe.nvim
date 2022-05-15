@@ -7,14 +7,14 @@ local fn = vim.fn
 ---@field interactive boolean
 ---@field restart boolean
 ---@field action string|function|action[]|action
----@field stay boolean|nil Keep terminal open on success. Override config.stay
+---@field keep_open boolean|nil Keep terminal open on success. Override config.stay
 M.default_recipe = {
   interactive = false,
   restart = false,
   action = "qf",
   uses = 0,
   last_access = 0,
-  stay = nil
+  keep_open = nil
 }
 
 ---@class action
@@ -23,11 +23,11 @@ M.default_recipe = {
 --
 ---@param recipe string|Recipe
 ---@param interactive boolean|nil
----@param stay boolea|nil
+---@param keep_open booleal|nil
 ---@tag recipe.make_recipe
-function M.make_recipe(recipe, interactive, stay)
+function M.make_recipe(recipe, interactive, keep_open)
   if type(recipe) == "string" then
-    return vim.tbl_extend("force", M.default_recipe, { cmd = recipe, interactive = interactive, stay = stay })
+    return vim.tbl_extend("force", M.default_recipe, { cmd = recipe, interactive = interactive, keep_open = keep_open })
   elseif type(recipe) == "table" then
     return vim.tbl_extend("force", M.default_recipe, recipe)
   else

@@ -13,15 +13,17 @@ M.options = {
   ---@field border string
   ---@field adapter table
   ---@field jump_to_end boolean to the end/bottom of terminal
-  ---@field close_on_success boolean Close terminal if job completed with
+  ---@field keep_open boolean Close terminal if job completed with
   --nonzero code
+  ---@field focus boolean
   term = {
     height = 0.7,
     width = 0.5,
     type = "smart",
     border = "shadow",
     jump_to_end = true,
-    stay = true,
+    keep_open = false,
+    focus = false,
   },
   actions = {
     qf = function(data, cmd, s) util.qf(data, cmd, "c", s) end,

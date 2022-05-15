@@ -139,9 +139,9 @@ end
 ---Execute an arbitrary command
 ---@param cmd string
 ---@param interactive boolean|nil
----@param stay boolean|nil
-function M.execute(cmd, interactive, stay)
-  local t = util.make_recipe(cmd, interactive, stay)
+---@param keep_open boolean|nil
+function M.execute(cmd, interactive, keep_open)
+  local t = util.make_recipe(cmd, interactive, keep_open)
   lib.execute(t.cmd, t)
 end
 

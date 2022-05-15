@@ -5,7 +5,7 @@ local filetypes = {
     clippy = 'cargo clippy -q',
     clean = 'clean -q',
     run = { cmd = 'cargo run', interactive = true },
-    test = 'cargo test -q --all-features',
+    test = { cmd = 'cargo test -q --all-features', interactive = true, keep_open = false },
     doc = 'cargo doc -q --open',
   },
   python = {
