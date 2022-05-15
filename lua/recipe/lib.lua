@@ -151,23 +151,24 @@ _G.__recipe_exit = function(id, code)
 
 
   job.running = false
+  jobs[id] = nil
+  job_count = job_count - 1
 
-  if job.term == nil or (not job.recipe.keep_open and (code == 0 or code == 129)) then
+  if job.term == nil or (not job.recipe.keep_open and code == 0) then
     if job.term then
       api.nvim_buf_delete(job.term.buf, {})
       job.term = nil
     end
     job_names[job.key] = nil
-    jobs[id] = nil
   else
     local buf = job.term.buf
     api.nvim_create_autocmd("WinClosed", {
       callback = function()
+        vim.notify("Closing on au")
         api.nvim_buf_delete(buf, {})
         job.term = nil
 
         job_names[job.key] = nil
-        jobs[id] = nil
       end,
       buffer = buf
     })
@@ -211,7 +212,6 @@ _G.__recipe_exit = function(id, code)
     api.nvim_set_current_dir(old_cwd)
   end
 
-  job_count = job_count - 1
 end
 
 
@@ -267,8 +267,6 @@ function M.execute(key, recipe)
 
   local cmd = recipe.raw and recipe.cmd or recipe.cmd:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)
 
-
-
   local cur_win = api.nvim_get_current_win()
   for _, hook in ipairs(config.options.hooks.pre) do
     hook(recipe)
@@ -277,19 +275,21 @@ function M.execute(key, recipe)
   local job = M.find_active(key)
   if job then
     if not job.running or recipe.restart then
-
-      fn.jobstop(job.id)
-      fn.jobwait({ job.id }, 1000)
-
       -- Reuse window if the old jobs terminal exists and is visible
       if job.term then
         local term_buf = job.term.buf
         local win = fn.bufwinid(term_buf)
         if win ~= -1 then
           term = open_term_win(win)
+          api.nvim_buf_delete(job.term.buf, {})
+          job.term = nil
         end
-        -- Remove old buffer
-        api.nvim_buf_delete(term_buf, {})
+      end
+
+      if job.running then
+        vim.notify("Stopping job")
+        fn.jobstop(job.id)
+        fn.jobwait({ job.id }, 1000)
       end
     else
       M.focus(job)
