@@ -336,14 +336,6 @@ function M.execute(key, recipe)
     running = true,
   }
 
-  recipe.uses = recipe.uses + 1
-  recipe.last_access = uv.hrtime() / 1000000000
-
-  jobs[id] = job
-  job_names[key] = job
-  job_count = job_count + 1
-
-
   if id <= 0 then
     api.nvim_err_writeln("Failed to start job")
     return
@@ -365,6 +357,7 @@ function M.execute(key, recipe)
   jobs[id] = job
   job_names[key] = job
   job_count = job_count + 1
+
 
   if not recipe.focus then
     api.nvim_set_current_win(cur_win)
