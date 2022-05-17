@@ -164,7 +164,6 @@ _G.__recipe_exit = function(id, code)
     local buf = job.term.buf
     api.nvim_create_autocmd("WinClosed", {
       callback = function()
-        vim.notify("Closing on au")
         api.nvim_buf_delete(buf, {})
         job.term = nil
 
