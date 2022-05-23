@@ -110,6 +110,7 @@ end
 ---@field key string
 local job_count = 0
 local jobs = {}
+local background_jobs = 0
 local job_names = {}
 
 _G.__recipe_read = function(id, data)
@@ -154,6 +155,10 @@ _G.__recipe_exit = function(id, code)
   jobs[id] = nil
   job_count = job_count - 1
 
+  if job.recipe.interactive == false then
+    background_jobs = background_jobs - 1
+  end
+
   if job.term == nil or (not job.recipe.keep_open and code == 0) then
     if job.term then
       api.nvim_buf_delete(job.term.buf, {})
@@ -164,7 +169,7 @@ _G.__recipe_exit = function(id, code)
     local buf = job.term.buf
     api.nvim_create_autocmd("WinClosed", {
       callback = function()
-        api.nvim_buf_delete(buf, {})
+        -- api.nvim_buf_delete(buf, {})
         job.term = nil
 
         job_names[job.key] = nil
@@ -240,6 +245,10 @@ function M.focus(job)
   end
 
   return true
+end
+
+function M.background_jobs()
+  return background_jobs
 end
 
 function M.active_jobs()
@@ -357,6 +366,9 @@ function M.execute(key, recipe)
   job_names[key] = job
   job_count = job_count + 1
 
+  if recipe.interactive == false then
+    background_jobs = background_jobs + 1
+  end
 
   if not recipe.focus then
     api.nvim_set_current_win(cur_win)

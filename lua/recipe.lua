@@ -227,7 +227,7 @@ end
 local sl = require "recipe.statusline"
 function M.statusline()
   local spinner = ""
-  if lib.active_jobs() > 0 then
+  if lib.background_jobs() > 0 then
     sl.start()
     spinner = sl.get_spinner()
   else
