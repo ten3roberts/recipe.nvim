@@ -50,6 +50,7 @@ M.options = {
 	---@field action string|function|action[]|action
 	---@field keep_open boolean Keep terminal open on success
 	---@field focus boolean Focus the spawned terminal
+	---@field env table|nil
 	default_recipe = {
 		interactive = false,
 		restart = false,

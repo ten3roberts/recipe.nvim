@@ -114,7 +114,7 @@ local jobs = {}
 local background_jobs = 0
 local job_names = {}
 
-_G.__recipe_read = function(id, data)
+local function on_output(id, data)
 	local job = jobs[id]
 
 	local jdata = job.data
@@ -139,7 +139,7 @@ local success_codes = {
 	[129] = true, -- SIGTERM
 }
 
-_G.__recipe_exit = function(id, code)
+local function on_exit(id, code)
 	local job = jobs[id]
 
 	local success = success_codes[code] or false
@@ -222,18 +222,6 @@ _G.__recipe_exit = function(id, code)
 	end
 end
 
-vim.api.nvim_exec(
-	[[
-  function! RecipeJobRead(j,d,e)
-  call v:lua.__recipe_read(a:j, a:d)
-  endfun
-  function! RecipeJobExit(j,d,e)
-  call v:lua.__recipe_exit(a:j, a:d)
-  endfun
-]],
-	false
-)
-
 function M.find_active(key)
 	local job = job_names[key]
 	return job
@@ -272,6 +260,7 @@ function M.stop_all()
 end
 
 -- Execute a command async
+---@param recipe Recipe
 function M.execute(key, recipe)
 	local start_time = uv.hrtime()
 
@@ -324,16 +313,18 @@ function M.execute(key, recipe)
 
 		id = vim.fn.termopen(cmd, {
 			cwd = recipe.cwd,
-			on_stdout = "RecipeJobRead",
-			on_exit = "RecipeJobExit",
-			on_stderr = "RecipeJobRead",
+			on_stdout = on_output,
+			on_exit = on_exit,
+			on_stderr = on_output,
+			env = recipe.env,
 		})
 	else
 		id = vim.fn.jobstart(cmd, {
 			cwd = recipe.cwd,
-			on_stdout = "RecipeJobRead",
-			on_exit = "RecipeJobExit",
-			on_stderr = "RecipeJobRead",
+			on_stdout = on_output,
+			on_exit = on_exit,
+			on_stderr = on_output,
+			env = recipe.env,
 		})
 	end
 

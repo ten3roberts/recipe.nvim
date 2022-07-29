@@ -1,36 +1,36 @@
 {
-  "build": {
-    "cmd": "cargo build",
-    "interactive": "true",
-    "cwd": "../../rust/waves/"
-  },
-  "py": {
-    "cmd": "python",
-    "interactive": true
-  },
-  "luacheck": {
-    "cmd": "luac %",
-    "action": [
-      "notify",
-      "qf"
-    ]
-  },
-  "lua-repl": {
-    "cmd": "lua",
-    "restart": true,
-    "interactive": true
-  },
-  "local_find": {
-    "cmd": "find . -type f",
-    "action": "loc"
-  },
-  "debug-rust": {
-    "cmd": "cargo build",
-    "action": {
-      "name": "dap",
-      "opts": {
-        "program": "./target/debug/myprogram"
-      }
+    "build": {
+        "cmd": "cargo build",
+        "interactive": "true",
+        "cwd": "../../rust/waves/"
+    },
+    "py": {
+        "cmd": "python",
+        "interactive": true
+    },
+    "luacheck": {
+        "cmd": "luac %",
+        "action": [
+            "notify",
+            "qf"
+        ]
+    },
+    "lua-repl": {
+        "cmd": "lua",
+        "restart": true,
+        "interactive": true
+    },
+    "local_find": {
+        "cmd": "find . -type f",
+        "action": "loc"
+    },
+    "debug-rust": {
+        "cmd": "cargo build",
+        "action": {
+            "name": "dap",
+            "opts": {
+                "program": "./target/debug/myprogram"
+            }
+        }
     }
-  }
 }
