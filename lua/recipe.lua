@@ -8,7 +8,7 @@ local config = require("recipe.config")
 local M = {}
 
 --- Provide a custom config
---- @param opts config
+--- @param opts Config
 function M.setup(opts)
 	config.setup(opts)
 
@@ -66,7 +66,6 @@ M.stop_all = lib.stop_all
 function M.load_recipes(force, path)
 	path = path or config.options.recipes_file
 	local cwd = fn.fnamemodify(path, ":p:h")
-	local old_cwd = fn.getcwd()
 	api.nvim_set_current_dir(cwd)
 
 	if not force and loaded_paths[cwd] ~= nil then
@@ -103,33 +102,33 @@ function M.load_recipes(force, path)
 					end
 				end
 
-				lib.trust_path(path, function()
-					local ok, obj = pcall(vim.json.decode, data)
+				lib.trust_path(
+					path,
+					vim.schedule_wrap(function()
+						local ok, obj = pcall(vim.json.decode, data)
 
-					if not ok then
-						vim.notify(string.format("Failed to parse %s:\n%s", path, obj), vim.log.levels.ERROR)
-						return
-					end
-
-					local c = 0
-					for k, v in pairs(obj) do
-						if type(k) ~= "string" then
-							api.nvim_err_writeln("Expected string key in %q", path)
+						if not ok then
+							vim.notify(string.format("Failed to parse %s:\n%s", path, obj), vim.log.levels.ERROR)
 							return
 						end
 
-						c = c + 1
+						local c = 0
+						for k, v in pairs(obj) do
+							if type(k) ~= "string" then
+								api.nvim_err_writeln("Expected string key in %q", path)
+								return
+							end
 
-						v = config.make_recipe(v)
-						api.nvim_set_current_dir(cwd)
-						v.cwd = fn.fnamemodify(v.cwd or cwd, ":p")
+							c = c + 1
 
-						M.insert(k, v)
-					end
+							v = config.make_recipe(v)
 
-					vim.notify(string.format("Loaded %d recipes", c))
-					api.nvim_set_current_dir(old_cwd)
-				end)
+							M.insert(k, v)
+						end
+
+						vim.notify(string.format("Loaded %d recipes", c))
+					end)
+				)
 			end)
 		end)
 	)
@@ -146,24 +145,33 @@ function M.bake(name)
 	local custom = config.options.custom_recipes
 	local recipe = M.recipe(name) or custom.global[name] or (custom[vim.o.ft] or {})[name]
 
-	if type(recipe) == "table" then
-		lib.execute(name, recipe)
-	else
-		api.nvim_err_writeln("No recipe: " .. name)
+	if recipe == nil then
+		return vim.notify("No recipe: " .. name, vim.log.levels.ERROR)
 	end
+
+	api.nvim_err_writeln("No recipe: " .. name)
+	recipe = config.make_recipe(recipe)
+	recipe.name = name
 end
 
 ---Execute an arbitrary command
 ---@param cmd string|Recipe
 function M.execute(cmd)
-	local t = config.make_recipe(cmd)
-	lib.execute(t.cmd, t)
+	local recipe = config.make_recipe(cmd)
+	lib.spawn(recipe)
 end
+---@class Frecency
+---@field uses number
+---@field last_use number
+
+---@type { [string]: Frecency }
+local recipe_frecency = {}
 
 local function recipe_score(recipe, now)
-	local dur = now - (recipe[2].last_access or 0)
+	local f = recipe_frecency[recipe[1]] or { uses = 0, last_use = 0 }
+	local dur = now - f.last_use
 
-	return ((recipe[2].uses or 0) + 1) / dur * recipe[3]
+	return (f.uses + 1) / dur * recipe[3]
 end
 
 local function order()
@@ -186,9 +194,9 @@ local function order()
 		t[k] = { k, v, 1.0 }
 	end
 
-	local _, jobs = lib.active_jobs()
-	for _, v in pairs(jobs) do
-		t[v.key] = { v.key, v.recipe, 2.0 }
+	local tasks = lib.get_tasks()
+	for k, v in pairs(tasks) do
+		t[k] = { k, v.recipe, 2.0 }
 	end
 
 	-- Collect into list
@@ -219,13 +227,7 @@ function M.pick()
 	local opts = {
 		format_item = function(val)
 			local pad = string.rep(" ", math.max(max_len - #val[1]))
-			return string.format(
-				"%s %s%s - %s",
-				lib.is_active(val[1]) and "*" or " ",
-				val[1],
-				pad,
-				val[2].cmd or val[2]
-			)
+			return string.format("%s %s%s - %s", lib.get_task(val[1]) and "*" or " ", val[1], pad, val[2].cmd or val[2])
 		end,
 	}
 
@@ -238,7 +240,13 @@ function M.pick()
 		if not r then
 			return
 		end
-		lib.execute(r[1], r[2])
+
+		local f = recipe_frecency[r[1]] or { uses = 0, last_use = 0 }
+		f.uses = f.uses + 1
+		f.last_use = vim.loop.hrtime()
+		recipe_frecency[r[1]] = f
+
+		lib.spawn(r[2])
 	end)
 end
 
@@ -257,12 +265,6 @@ end
 local sl = require("recipe.statusline")
 function M.statusline()
 	local spinner = ""
-	if lib.background_jobs() > 0 then
-		sl.start()
-		spinner = sl.get_spinner()
-	else
-		sl.stop()
-	end
 
 	return spinner
 end

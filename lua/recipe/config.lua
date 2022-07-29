@@ -1,36 +1,35 @@
 local M = {}
-local api = vim.api
-local util = require("recipe.util")
+
+---@class RecipeAdapter
+---@field kind string
+---@field config table
+local default_adapter = {
+	kind = "build",
+	config = {},
+}
+
+---@class Task
+---@field stop fun()
+---@field focus fun()
+---@field restart fun(): Task
+---@field recipe Recipe
 
 local adapters = require("recipe.adapters")
----@class config
+
+---@class Config
 ---@field custom_recipes table<string, Recipe>
----@field term term customize terminal
+---@field term TermConfig customize terminal
 ---@field default_recipe Recipe
+---@field adapter table
 M.options = {
-	---@class term
-	---@field height number
-	---@field width number
-	---@field type string
-	---@field border string
-	---@field adapter table
-	---@field jump_to_end boolean to the end/bottom of terminal
+	---@class TermConfig
 	term = {
 		height = 0.7,
 		width = 0.5,
 		type = "smart",
-		border = "shadow",
+		border = "single",
 		jump_to_end = true,
-	},
-	actions = {
-		qf = function(data, cmd, s)
-			util.qf(data, cmd, "c", s)
-		end,
-		loc = function(data, cmd, s)
-			util.qf(data, cmd, "l", s)
-		end,
-		dap = require("recipe.dap").launch,
-		notify = util.notify,
+		auto_close = false,
 	},
 	recipes_file = "recipes.json",
 	--- Define custom global recipes, either globally or by filetype as key
@@ -42,24 +41,26 @@ M.options = {
 			end,
 		},
 	},
+
 	---@class Recipe
 	---@field cmd string
 	---@field cwd string
-	---@field interactive boolean
+	---@field adapter Adapter
 	---@field restart boolean
+	---@field plain boolean
 	---@field action string|function|action[]|action
 	---@field keep_open boolean Keep terminal open on success
 	---@field focus boolean Focus the spawned terminal
 	---@field env table|nil
 	default_recipe = {
-		interactive = false,
+		---@class Adapter
+		---@field kind string
+		---@field config table
+		adapter = { kind = "build", config = {} },
 		restart = false,
-		action = "qf",
-		uses = 0,
-		last_access = 0,
-		keep_open = false,
-		focus = true,
+		plain = false,
 	},
+
 	adapters = {
 		cargo = adapters.codelldb,
 		cmake = adapters.codelldb,
@@ -67,27 +68,20 @@ M.options = {
 	},
 }
 
----@class action
----@field name string
----@field opts table
---
 ---@param recipe string|Recipe
 ---@tag recipe.make_recipe
 function M.make_recipe(recipe)
 	if type(recipe) == "string" then
-		return vim.tbl_deep_extend("force", M.options.default_recipe, { cmd = recipe })
+		recipe = vim.tbl_deep_extend("force", M.options.default_recipe, { cmd = recipe })
 	elseif type(recipe) == "table" then
-		-- Do merge in place to preserve ref
-		for k, v in pairs(M.options.default_recipe) do
-			if recipe[k] == nil then
-				recipe[k] = v
-			end
-		end
-
-		return recipe
+		recipe = vim.tbl_deep_extend("force", M.options.default_recipe, recipe)
 	else
 		vim.api.nvim_err_writeln("Expected recipe to be string or table, found: " .. type(recipe))
 	end
+
+	recipe.cwd = vim.loop.fs_realpath(recipe.cwd or ".")
+
+	return recipe
 end
 
 function M.setup(config)
@@ -105,7 +99,7 @@ function M.setup(config)
 	-- Expand custom recipes
 	for _, v in pairs(M.options.custom_recipes) do
 		for name, recipe in pairs(v) do
-			v[name] = M.make_recipe(recipe)
+			v[name] = recipe
 		end
 	end
 end

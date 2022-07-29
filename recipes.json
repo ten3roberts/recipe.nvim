@@ -1,24 +1,23 @@
 {
     "build": {
         "cmd": "cargo build",
-        "interactive": "true",
         "cwd": "../../rust/waves/"
     },
     "py": {
         "cmd": "python",
-        "interactive": true
+        "adapter": {
+            "kind": "term"
+        }
     },
     "luacheck": {
-        "cmd": "luac %",
-        "action": [
-            "notify",
-            "qf"
-        ]
+        "cmd": "luac %"
     },
     "lua-repl": {
         "cmd": "lua",
-        "restart": true,
-        "interactive": true
+        "adapter": {
+            "kind": "term"
+        },
+        "restart": true
     },
     "local_find": {
         "cmd": "find . -type f",
