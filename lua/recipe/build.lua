@@ -11,8 +11,15 @@ end
 ---@return Task|nil
 function M.execute(recipe, callback)
 	local data = { "" }
+	local info = {
+		stopped = false,
+	}
 
 	local function on_exit(_, code)
+		if info.stopped then
+			return
+		end
+
 		local old_cwd = vim.fn.getcwd()
 		api.nvim_set_current_dir(recipe.cwd)
 
@@ -52,8 +59,15 @@ function M.execute(recipe, callback)
 
 	return {
 		stop = function()
+			info.stopped = true
 			fn.jobstop(id)
 			fn.jobwait({ id }, 1000)
+		end,
+		restart = function(cb)
+			info.stopped = true
+			fn.jobstop(id)
+			fn.jobwait({ id }, 1000)
+			M.execute(recipe, cb)
 		end,
 		focus = function() end,
 		recipe = recipe,

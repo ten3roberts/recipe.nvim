@@ -2,13 +2,12 @@ local api = vim.api
 local fn = vim.fn
 
 local lib = require("recipe.lib")
-local util = require("recipe.util")
 local config = require("recipe.config")
 
 local M = {}
 
---- Provide a custom config
---- @param opts Config
+---Provide a custom config
+---@param opts Config
 function M.setup(opts)
 	config.setup(opts)
 
@@ -25,13 +24,13 @@ function M.setup(opts)
 	})
 
 	au({ "BufWritePost" }, {
-		pattern = config.options.recipes_file,
+		pattern = config.opts.recipes_file,
 		callback = function(o)
 			M.load_recipes(true, o.file)
 		end,
 	})
 
-	if config.options.term.jump_to_end then
+	if config.opts.term.jump_to_end then
 		au("TermOpen", {
 			callback = function()
 				vim.cmd("normal! G")
@@ -64,7 +63,7 @@ M.stop_all = lib.stop_all
 
 --- Loads recipes from `recipes.json`
 function M.load_recipes(force, path)
-	path = path or config.options.recipes_file
+	path = path or config.opts.recipes_file
 	local cwd = fn.fnamemodify(path, ":p:h")
 	api.nvim_set_current_dir(cwd)
 
@@ -142,7 +141,7 @@ end
 
 --- Execute a recipe by name asynchronously
 function M.bake(name)
-	local custom = config.options.custom_recipes
+	local custom = config.opts.custom_recipes
 	local recipe = M.recipe(name) or custom.global[name] or (custom[vim.o.ft] or {})[name]
 
 	if recipe == nil then
@@ -150,15 +149,15 @@ function M.bake(name)
 	end
 
 	api.nvim_err_writeln("No recipe: " .. name)
-	recipe = config.make_recipe(recipe)
-	recipe.name = name
+
+	lib.spawn(name, recipe)
 end
 
 ---Execute an arbitrary command
----@param cmd string|Recipe
-function M.execute(cmd)
-	local recipe = config.make_recipe(cmd)
-	lib.spawn(recipe)
+---@param recipe string|Recipe
+function M.execute(recipe)
+	recipe = config.make_recipe(recipe)
+	lib.spawn(recipe.cmd, recipe)
 end
 ---@class Frecency
 ---@field uses number
@@ -170,6 +169,7 @@ local recipe_frecency = {}
 local function recipe_score(recipe, now)
 	local f = recipe_frecency[recipe[1]] or { uses = 0, last_use = 0 }
 	local dur = now - f.last_use
+	print(string.format("Duration for: %s: %d", recipe[1], dur))
 
 	return (f.uses + 1) / dur * recipe[3]
 end
@@ -179,7 +179,7 @@ local function order()
 	local recipes = M.recipes
 	local t = {}
 
-	local custom = config.options.custom_recipes
+	local custom = config.opts.custom_recipes
 	local global = custom.global
 
 	for k, v in pairs(custom[vim.o.ft] or {}) do
@@ -209,6 +209,7 @@ local function order()
 	table.sort(items, function(a, b)
 		return recipe_score(a, now) > recipe_score(b, now)
 	end)
+
 	return items
 end
 
@@ -227,7 +228,11 @@ function M.pick()
 	local opts = {
 		format_item = function(val)
 			local pad = string.rep(" ", math.max(max_len - #val[1]))
-			return string.format("%s %s%s - %s", lib.get_task(val[1]) and "*" or " ", val[1], pad, val[2].cmd or val[2])
+
+			local key = val[1]
+			local recipe = val[2]
+
+			return string.format("%s %s%s - %s", lib.get_task(key) and "*" or " ", key, pad, recipe.cmd or recipe)
 		end,
 	}
 
@@ -241,12 +246,15 @@ function M.pick()
 			return
 		end
 
-		local f = recipe_frecency[r[1]] or { uses = 0, last_use = 0 }
-		f.uses = f.uses + 1
-		f.last_use = vim.loop.hrtime()
-		recipe_frecency[r[1]] = f
+		local key = r[1]
+		local recipe = r[2]
 
-		lib.spawn(r[2])
+		local f = recipe_frecency[key] or { uses = 0, last_use = 0 }
+		f.uses = f.uses + 1
+		f.last_use = vim.loop.hrtime() / 1000000000
+		recipe_frecency[key] = f
+
+		lib.spawn(key, recipe)
 	end)
 end
 

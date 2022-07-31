@@ -44,11 +44,13 @@ local adapters = {
 	build = require("recipe.build"),
 }
 
----@param recipe Recipe
 --- Spawn a recipe
-function M.spawn(recipe)
+---@param key string
+---@param recipe Recipe
+function M.spawn(key, recipe)
 	vim.notify("Spawning: " .. vim.inspect(recipe))
 
+	recipe = config.make_recipe(recipe)
 	recipe.cmd = recipe.plain and recipe.cmd
 		or recipe.cmd:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)
 
@@ -56,33 +58,10 @@ function M.spawn(recipe)
 		recipe.name = recipe.cmd
 	end
 
-	-- Check if task is already running
-	if tasks[recipe.name] then
-		vim.notify("Task is running")
-		local task = tasks[recipe.name]
-		if recipe.restart then
-			task.stop()
-		else
-			task.focus()
-			return
-		end
-	end
-
-	for _, hook in ipairs(config.options.hooks.pre) do
-		hook(recipe)
-	end
-
-	local adapter = adapters[recipe.adapter.kind]
-
-	if adapter == nil then
-		vim.notify(string.format("Invalid adapter: %s", recipe.adapter.kind, vim.log.levels.ERROR))
-		return
-	end
-
 	local start_time = uv.hrtime()
 
 	local function on_exit(code)
-		tasks[recipe.name] = nil
+		tasks[key] = nil
 
 		local duration = (uv.hrtime() - start_time) / 1000000
 
@@ -93,9 +72,33 @@ function M.spawn(recipe)
 		vim.notify(string.format("%s: %q %s", state, recipe.cmd, M.format_time(duration)), level)
 	end
 
+	for _, hook in ipairs(config.opts.hooks.pre) do
+		hook(recipe)
+	end
+
+	-- Check if task is already running
+	if tasks[key] then
+		vim.notify("Task is running")
+		local task = tasks[key]
+		if recipe.restart then
+			tasks[key] = task.restart(on_exit)
+			return
+		else
+			task.focus()
+			return
+		end
+	end
+
+	local adapter = adapters[recipe.kind]
+
+	if adapter == nil then
+		vim.notify(string.format("Invalid adapter: %s", recipe.kind), vim.log.levels.ERROR)
+		return
+	end
+
 	local task = adapter.execute(recipe, on_exit)
 
-	tasks[recipe.name] = task
+	tasks[key] = task
 end
 
 local success_codes = {

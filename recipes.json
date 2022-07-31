@@ -5,31 +5,24 @@
     },
     "py": {
         "cmd": "python",
-        "adapter": {
-            "kind": "term"
-        }
+        "kind": "term"
     },
     "luacheck": {
         "cmd": "luac %"
     },
     "lua-repl": {
         "cmd": "lua",
-        "adapter": {
-            "kind": "term"
-        },
+        "kind": "term",
         "restart": true
     },
     "local_find": {
-        "cmd": "find . -type f",
-        "action": "loc"
+        "cmd": "find . -type f"
     },
     "debug-rust": {
         "cmd": "cargo build",
-        "action": {
-            "name": "dap",
-            "opts": {
-                "program": "./target/debug/myprogram"
-            }
+        "kind": "dap",
+        "opts": {
+            "program": "./target/debug/myprogram"
         }
     }
 }

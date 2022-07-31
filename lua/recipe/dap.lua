@@ -13,7 +13,7 @@ function M.setup()
 		return
 	end
 	has_setup = true
-	for k, v in pairs(config.options.adapters) do
+	for k, v in pairs(config.opts.adapters) do
 		dap.adapters["recipe-" .. k] = v
 	end
 end

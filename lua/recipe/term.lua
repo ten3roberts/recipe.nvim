@@ -42,21 +42,20 @@ function M.open_win(config, bufnr)
 			end,
 			buffer = bufnr,
 		})
+
+		return win
 	elseif config.type == "split" then
 		vim.cmd("split")
-		local win = vim.api.nvim_get_current_win()
-		return api.nvim_win_set_buf(win, bufnr)
+		return vim.api.nvim_get_current_win()
 	elseif config.type == "vsplit" then
 		vim.cmd("vsplit")
-		local win = vim.api.nvim_get_current_win()
-		return api.nvim_win_set_buf(win, bufnr)
+		return vim.api.nvim_get_current_win()
 	elseif config.type == "smart" then
 		local font_lh_ratio = 0.3
 		local w, h = api.nvim_win_get_width(0) * font_lh_ratio, api.nvim_win_get_height(0)
 		local cmd = (w > h) and "vsplit" or "split"
 		vim.cmd(cmd)
-		local win = vim.api.nvim_get_current_win()
-		return api.nvim_win_set_buf(win, bufnr)
+		return vim.api.nvim_get_current_win()
 	else
 		api.nvim_err_writeln("Recipe: Unknown terminal mode " .. config.type)
 	end
@@ -65,14 +64,24 @@ end
 ---@param recipe Recipe
 ---@param callback fun(code: number)
 ---@return Task|nil
-function M.execute(recipe, callback)
+function M.execute(recipe, callback, win)
 	local bufnr = api.nvim_create_buf(false, true)
 
 	---@type TermConfig
-	local config = vim.tbl_deep_extend("keep", recipe.adapter.config, require("recipe.config").options.term)
-	local win = M.open_win(config, bufnr)
+	local config = vim.tbl_deep_extend("keep", recipe.opts, require("recipe.config").opts.term)
+	win = win or M.open_win(config, bufnr)
+
+	api.nvim_win_set_buf(win, bufnr)
+
+	local info = {
+		stopped = false,
+	}
 
 	local function on_exit(_, code)
+		if info.stopped then
+			return
+		end
+
 		if config.auto_close and fn.bufloaded(bufnr) == 1 then
 			api.nvim_buf_delete(bufnr, {})
 		end
@@ -93,8 +102,20 @@ function M.execute(recipe, callback)
 
 	return {
 		stop = function()
+			info.stopped = true
+
 			fn.jobstop(id)
 			fn.jobwait({ id }, 1000)
+		end,
+		restart = function(cb)
+			info.stopped = true
+
+			win = fn.bufwinid(bufnr)
+			if win == -1 then
+				win = nil
+			end
+
+			return M.execute(recipe, cb, win)
 		end,
 		focus = function()
 			win = fn.bufwinid(bufnr)
@@ -102,6 +123,7 @@ function M.execute(recipe, callback)
 				api.nvim_set_current_win(win)
 			elseif fn.bufloaded(bufnr) == 1 then
 				win = M.open_win(config, bufnr)
+				api.nvim_win_set_buf(win, bufnr)
 			end
 		end,
 		recipe = recipe,
