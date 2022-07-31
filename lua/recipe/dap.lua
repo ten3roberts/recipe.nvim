@@ -62,6 +62,12 @@ function M.execute(recipe, callback)
 	dap.run(conf)
 
 	callback(0)
+
+	return {
+		focus = function() end,
+		stop = function() end,
+		execute = function() end,
+	}
 end
 
 return M
