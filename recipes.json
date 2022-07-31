@@ -18,11 +18,19 @@
     "local_find": {
         "cmd": "find . -type f"
     },
-    "debug-rust": {
-        "cmd": "cargo build",
-        "kind": "dap",
-        "opts": {
-            "program": "./target/debug/myprogram"
-        }
+    "sleep": {
+        "cmd": "sleep 5"
+    },
+    "long-process": {
+        "cmd": "notify-send Hello There",
+        "depends_on": [
+            "sleep",
+            {
+                "cmd": "firefox --url 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'",
+                "depends_on": [
+                    "sleep"
+                ]
+            }
+        ]
     }
 }

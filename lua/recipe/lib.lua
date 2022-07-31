@@ -42,25 +42,21 @@ local tasks = {}
 local adapters = {
 	term = require("recipe.term"),
 	build = require("recipe.build"),
+	dap = require("recipe.dap"),
 }
 
---- Spawn a recipe
+--- Spawns a recipe
 ---@param key string
 ---@param recipe Recipe
-function M.spawn(key, recipe)
-	vim.notify("Spawning: " .. vim.inspect(recipe))
-
-	recipe = config.make_recipe(recipe)
+---@param callback fun(code: number)|nil
+function M.spawn(key, recipe, callback)
 	recipe.cmd = recipe.plain and recipe.cmd
 		or recipe.cmd:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)
-
-	if recipe.name == nil then
-		recipe.name = recipe.cmd
-	end
 
 	local start_time = uv.hrtime()
 
 	local function on_exit(code)
+		local task = tasks[key]
 		tasks[key] = nil
 
 		local duration = (uv.hrtime() - start_time) / 1000000
@@ -70,6 +66,7 @@ function M.spawn(key, recipe)
 		local state = code == 0 and "Success" or string.format("Failure %d", code)
 
 		vim.notify(string.format("%s: %q %s", state, recipe.cmd, M.format_time(duration)), level)
+		task.callback(code)
 	end
 
 	for _, hook in ipairs(config.opts.hooks.pre) do
@@ -84,6 +81,13 @@ function M.spawn(key, recipe)
 			tasks[key] = task.restart(on_exit)
 			return
 		else
+			local old_cb = task.callback
+			task.callback = function(code)
+				if callback then
+					callback(code)
+				end
+				old_cb(code)
+			end
 			task.focus()
 			return
 		end
@@ -97,6 +101,7 @@ function M.spawn(key, recipe)
 	end
 
 	local task = adapter.execute(recipe, on_exit)
+	task.callback = callback or function(_) end
 
 	tasks[key] = task
 end

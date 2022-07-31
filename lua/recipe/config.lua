@@ -4,6 +4,7 @@ local M = {}
 ---@field stop fun()
 ---@field focus fun()
 ---@field restart fun(cb: fun(code: number): Task|nil): Task
+---@field callback fun(code: number) added by lib
 ---@field recipe Recipe
 
 local adapters = require("recipe.adapters")
@@ -41,11 +42,13 @@ M.opts = {
 	---@field plain boolean
 	---@field env table|nil
 	---@field opts table Extra options for the current backend
+	---@field depends_on (string|Recipe)[]
 	default_recipe = {
 		kind = "build",
 		opts = {},
 		restart = false,
 		plain = false,
+		depends_on = {},
 	},
 
 	adapters = {
@@ -58,13 +61,7 @@ M.opts = {
 ---@param recipe string|Recipe
 ---@tag recipe.make_recipe
 function M.make_recipe(recipe)
-	if type(recipe) == "string" then
-		recipe = vim.tbl_deep_extend("force", M.opts.default_recipe, { cmd = recipe })
-	elseif type(recipe) == "table" then
-		recipe = vim.tbl_deep_extend("force", M.opts.default_recipe, recipe)
-	else
-		vim.api.nvim_err_writeln("Expected recipe to be string or table, found: " .. type(recipe))
-	end
+	recipe = vim.tbl_deep_extend("force", M.opts.default_recipe, recipe)
 
 	--- Normalize the working directory
 	recipe.cwd = vim.loop.fs_realpath(recipe.cwd or ".")

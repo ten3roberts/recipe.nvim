@@ -140,7 +140,9 @@ function M.recipe(name)
 end
 
 --- Execute a recipe by name asynchronously
-function M.bake(name)
+---@param name string
+---@param callback fun(code: number)|nil
+function M.bake(name, callback)
 	local custom = config.opts.custom_recipes
 	local recipe = M.recipe(name) or custom.global[name] or (custom[vim.o.ft] or {})[name]
 
@@ -148,17 +150,46 @@ function M.bake(name)
 		return vim.notify("No recipe: " .. name, vim.log.levels.ERROR)
 	end
 
-	api.nvim_err_writeln("No recipe: " .. name)
-
-	lib.spawn(name, recipe)
+	M.execute(recipe, name, callback)
 end
 
----Execute an arbitrary command
----@param recipe string|Recipe
-function M.execute(recipe)
+--- Execute an arbitrary command
+---@param recipe Recipe
+---@param key string|nil optional key
+---@param callback fun(code: number)|nil
+function M.execute(recipe, key, callback)
 	recipe = config.make_recipe(recipe)
-	lib.spawn(recipe.cmd, recipe)
+	key = key or recipe.cmd
+	-- Execute dependencies before
+	local semaphore = { remaining = 1 }
+
+	local function ex(code)
+		if semaphore.remaining == nil or code ~= 0 then
+			semaphore.remaining = nil
+			return
+		end
+
+		semaphore.remaining = semaphore.remaining - 1
+
+		if semaphore.remaining == 0 then
+			lib.spawn(key, recipe, callback)
+		end
+	end
+
+	vim.notify(vim.inspect(recipe.depends_on))
+	for _, v in ipairs(recipe.depends_on) do
+		vim.notify("Executing dep: " .. vim.inspect(v))
+		semaphore.remaining = semaphore.remaining + 1
+		if type(v) == "string" then
+			M.bake(v, ex)
+		else
+			M.execute(v, nil, ex)
+		end
+	end
+
+	ex(0)
 end
+
 ---@class Frecency
 ---@field uses number
 ---@field last_use number
@@ -254,7 +285,7 @@ function M.pick()
 		f.last_use = vim.loop.hrtime() / 1000000000
 		recipe_frecency[key] = f
 
-		lib.spawn(key, recipe)
+		M.execute(recipe)
 	end)
 end
 

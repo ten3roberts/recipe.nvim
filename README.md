@@ -19,7 +19,7 @@ require "recipe".setup {}
 Run a recipe by name by simply
 
 ```lua
-require "recipe".bake(my-name)
+require "recipe".bake("build")
 ```
 
 or
@@ -51,17 +51,14 @@ commands or opening an HTML file in the browser.
 
 All recipes are a lua table consiting of
   - *cmd* - The command to execute
-  - *interactive* - Open a terminal for the process and allow user input,
-    useful for running your program
-  - *action* - Execute a function by ref or name (as specified in
-    `config.actions`)
+  - *kind* - either of build,term,dap
   - *cwd* - Working directory to run the recipe in
   - *restart* - Restart recipe instead of focusing it
 
 Recipe invocations are idempotent, so multiple of the same build invocations
 won't be run at the same time.
 
-If a recipe is interactive and is run again, the terminal will be focused or
+If `restart=true` the task will be restarted on subsequent runs, otherwise, the terminal will be focused or
 created again. This is very useful for a REPL which can be closed, reopened, or
 refocused.
 
@@ -72,15 +69,21 @@ refocused.
   "run": "cargo run --example physics",
   "run_term": {
     "cmd": "cargo run --example cli",
-    "interactive": true
+    "kind": "term"
   },
   "open": {
     "cmd": "xdg-open %:h",
-    "action": "loc"
   }
 }
 
 ```
+
+A recipe can have one or more dependencies, which will be run prior to
+execution.
+
+This can be specfied as a list of strings, which refer to recipe names, or
+tables which themselves are recipes, or a mix of both. This is useful for
+"compile before debug" scenarios.
 
 ## Configuration
 ```lua
@@ -93,13 +96,6 @@ M.config = {
     border = "shadow",
     jump_to_end = true,
   },
-  -- Specify your own actions as a function
-  -- These are then used in `recipe.action`
-  actions = {
-    qf = function(data, cmd) util.parse_efm(data, cmd, "c") end,
-    loc = function(data, cmd) util.parse_efm(data, cmd, "l") end,
-    notify = util.notify,
-  },
   -- Change the file for looking for recipes
   recipes_file = "recipes.json",
   --- Define custom global recipes, either globally or by filetype as key
@@ -110,7 +106,7 @@ M.config = {
     global = {
       open = "xdg-open %:h",
       open_f = "xdg-open <cfile>"
-      term = { cmd = vim.env.SHELL, interactive = true }
+      term = { cmd = vim.env.SHELL, kind = "term" }
     }
   },
   -- Every recipe will be merged with the default to provide unspecified fields
@@ -133,8 +129,9 @@ Recipe supports launching a DAP debugging session on a successful build.
 ```json
 {
   "debug-rust": {
-    "cmd": "cargo build",
-    "action": { "name:" "dap", "opts:" { "program": "./target/debug/myprogram" } }
+    "cmd": "./target/debug/myprogram",
+    "kind": "dap",
+    "depends_on": [ "build" ]
   }
 }
 ```
@@ -154,7 +151,7 @@ Otherwise a custom adapter or other options can be specified in the same way as
 
 ## Repl and Interactive Programs
 
-By setting `"interactive": true` the recipe will be launched in a terminal
+By setting `"kind": "term"` the recipe will be launched in a terminal
 according to `config.term`.
 
 If a running job is executed again, the terminal window will be focused or
@@ -175,12 +172,12 @@ interactive jobs.
 A more complicated recipe can also be executed directly by `recipe.execute`.
 
 ```lua
-require "recipe".execute { cmd = "cargo add tokio -F all", interactive = true }
+require "recipe".execute { cmd = "cargo add tokio -F all", kind = "term" }
 ```
 
 This is useful for plugins executing commands on behalf of `recipe`.
 
-Use a `bang` `ExI!` or `{ keep_open = true }` to keep the terminal open after
+Use a `bang` `ExI!` or `{ opts = { auto_close = false } }` to keep the terminal open after
 a successful command. Can also be overridden in [#Setup]
 
 ## Persistent terminals
