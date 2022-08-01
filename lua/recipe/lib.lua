@@ -75,7 +75,7 @@ function M.spawn(key, recipe, callback)
 
 	-- Check if task is already running
 	if tasks[key] then
-		vim.notify("Task is running")
+		vim.notify("Task is already running")
 		local task = tasks[key]
 		if recipe.restart then
 			tasks[key] = task.restart(on_exit)

@@ -74,11 +74,11 @@ function M.execute(recipe, callback, win)
 	api.nvim_win_set_buf(win, bufnr)
 
 	local info = {
-		stopped = false,
+		restarted = false,
 	}
 
 	local function on_exit(_, code)
-		if info.stopped then
+		if info.restarted then
 			return
 		end
 
@@ -102,13 +102,11 @@ function M.execute(recipe, callback, win)
 
 	return {
 		stop = function()
-			info.stopped = true
-
 			fn.jobstop(id)
 			fn.jobwait({ id }, 1000)
 		end,
 		restart = function(cb)
-			info.stopped = true
+			info.restarted = true
 
 			win = fn.bufwinid(bufnr)
 			if win == -1 then

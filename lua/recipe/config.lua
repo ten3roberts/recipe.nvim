@@ -29,7 +29,7 @@ M.opts = {
 	custom_recipes = require("recipe.ft"),
 	hooks = {
 		pre = {
-			function()
+			function(_)
 				vim.cmd(":wa")
 			end,
 		},
@@ -44,6 +44,7 @@ M.opts = {
 	---@field opts table Extra options for the current backend
 	---@field depends_on (string|Recipe)[]
 	default_recipe = {
+		cmd = "",
 		kind = "build",
 		opts = {},
 		restart = false,
@@ -58,9 +59,13 @@ M.opts = {
 	},
 }
 
----@param recipe string|Recipe
+---@param recipe Recipe
 ---@tag recipe.make_recipe
 function M.make_recipe(recipe)
+	if type(recipe) ~= "table" then
+		vim.notify("Recipe must be of kind table")
+		return { cmd = "" }
+	end
 	recipe = vim.tbl_deep_extend("force", M.opts.default_recipe, recipe)
 
 	--- Normalize the working directory

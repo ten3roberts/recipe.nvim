@@ -12,11 +12,11 @@ end
 function M.execute(recipe, callback)
 	local data = { "" }
 	local info = {
-		stopped = false,
+		restarted = false,
 	}
 
 	local function on_exit(_, code)
-		if info.stopped then
+		if info.restarted then
 			return
 		end
 
@@ -59,12 +59,11 @@ function M.execute(recipe, callback)
 
 	return {
 		stop = function()
-			info.stopped = true
 			fn.jobstop(id)
 			fn.jobwait({ id }, 1000)
 		end,
 		restart = function(cb)
-			info.stopped = true
+			info.restarted = true
 			fn.jobstop(id)
 			fn.jobwait({ id }, 1000)
 			M.execute(recipe, cb)

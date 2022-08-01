@@ -176,9 +176,7 @@ function M.execute(recipe, key, callback)
 		end
 	end
 
-	vim.notify(vim.inspect(recipe.depends_on))
 	for _, v in ipairs(recipe.depends_on) do
-		vim.notify("Executing dep: " .. vim.inspect(v))
 		semaphore.remaining = semaphore.remaining + 1
 		if type(v) == "string" then
 			M.bake(v, ex)
