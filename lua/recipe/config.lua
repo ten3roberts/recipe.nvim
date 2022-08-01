@@ -7,8 +7,6 @@ local M = {}
 ---@field callback fun(code: number) added by lib
 ---@field recipe Recipe
 
-local adapters = require("recipe.adapters")
-
 ---@class Config
 ---@field custom_recipes table<string, Recipe>
 ---@field term TermConfig customize terminal
@@ -53,9 +51,15 @@ M.opts = {
 	},
 
 	adapters = {
-		cargo = adapters.codelldb,
-		cmake = adapters.codelldb,
-		make = adapters.codelldb,
+		term = require("recipe.adapters.term"),
+		build = require("recipe.adapters.build"),
+		dap = require("recipe.adapters.dap"),
+	},
+
+	debug_adapters = {
+		rust = require "recipe.debug_adapters".codelldb,
+		c = require "recipe.debug_adapters".codelldb,
+		cpp = require "recipe.debug_adapters".codelldb,
 	},
 }
 

@@ -14,9 +14,8 @@ function M.setup()
 		return
 	end
 	has_setup = true
-	for k, v in pairs(config.opts.adapters) do
-		dap.adapters["recipe-" .. k] = v
-	end
+
+	dap.adapters = vim.tbl_extend("keep", dap.adapters, config.opts.adapters)
 end
 
 --- @param _ string
@@ -48,10 +47,8 @@ function M.execute(recipe, callback)
 
 	local opts = recipe.opts
 
-	local compiler = util.get_compiler(recipe.cmd)
-
 	local conf = vim.tbl_extend("force", {
-		type = opts.adapter or ("recipe-" .. compiler:lower()),
+		type = opts.adapter or vim.o.ft,
 		request = "launch",
 		cwd = recipe.cwd,
 		name = "Recipe " .. recipe.cmd,

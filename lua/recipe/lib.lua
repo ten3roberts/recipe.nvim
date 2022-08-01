@@ -39,17 +39,12 @@ end
 ---@type { [string]: Task }
 local tasks = {}
 
-local adapters = {
-	term = require("recipe.term"),
-	build = require("recipe.build"),
-	dap = require("recipe.dap"),
-}
-
 --- Spawns a recipe
 ---@param key string
 ---@param recipe Recipe
 ---@param callback fun(code: number)|nil
 function M.spawn(key, recipe, callback)
+	local adapters = config.opts.adapters
 	recipe.cmd = recipe.plain and recipe.cmd
 		or recipe.cmd:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)
 
