@@ -15,7 +15,7 @@ function M.setup()
 	end
 	has_setup = true
 
-	dap.adapters = vim.tbl_extend("keep", dap.adapters, config.opts.adapters)
+	dap.adapters = vim.tbl_extend("keep", dap.adapters, config.opts.debug_adapters)
 end
 
 --- @param _ string
@@ -40,31 +40,30 @@ function M.launch(_, recipe, ok, opts)
 end
 
 ---@param recipe Recipe
----@param callback fun(code: number)
----@return Task|nil
-function M.execute(recipe, callback)
+---@param on_start fun(task: Task|nil)
+---@param on_exit fun(code: number)
+function M.execute(recipe, on_start, on_exit)
 	M.setup()
 
 	local opts = recipe.opts
 
-	local conf = vim.tbl_extend("force", {
+	local conf = {
 		type = opts.adapter or vim.o.ft,
 		request = "launch",
-		cwd = recipe.cwd,
 		name = "Recipe " .. recipe.cmd,
 		program = recipe.cmd,
 		justMyCode = true,
-	}, opts)
+	}
 
-	dap.run(conf)
+	dap.run(conf, { env = recipe.env, cwd = recipe.cwd })
 
-	callback(0)
-
-	return {
+	on_start({
 		focus = function() end,
 		stop = function() end,
 		execute = function() end,
-	}
+	})
+
+	on_exit(0)
 end
 
 return M

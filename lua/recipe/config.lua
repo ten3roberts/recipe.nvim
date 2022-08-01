@@ -3,8 +3,8 @@ local M = {}
 ---@class Task
 ---@field stop fun()
 ---@field focus fun()
----@field restart fun(cb: fun(code: number): Task|nil): Task
----@field callback fun(code: number) added by lib
+---@field restart fun(on_start: fun(task: Task|nil), on_exit: fun(code: number): Task|nil): Task
+---@field callbacks fun(code: number)[] added by lib
 ---@field recipe Recipe
 
 ---@class Config
@@ -12,6 +12,7 @@ local M = {}
 ---@field term TermConfig customize terminal
 ---@field default_recipe Recipe
 ---@field adapter table
+---@field dotenv string Load path as dotenv before spawn
 M.opts = {
 	---@class TermConfig
 	term = {
@@ -48,6 +49,7 @@ M.opts = {
 		restart = false,
 		plain = false,
 		depends_on = {},
+		env = { __type = "table" },
 	},
 
 	adapters = {
@@ -57,10 +59,11 @@ M.opts = {
 	},
 
 	debug_adapters = {
-		rust = require "recipe.debug_adapters".codelldb,
-		c = require "recipe.debug_adapters".codelldb,
-		cpp = require "recipe.debug_adapters".codelldb,
+		rust = require("recipe.debug_adapters").codelldb,
+		c = require("recipe.debug_adapters").codelldb,
+		cpp = require("recipe.debug_adapters").codelldb,
 	},
+	dotenv = ".env",
 }
 
 ---@param recipe Recipe
@@ -70,6 +73,7 @@ function M.make_recipe(recipe)
 		vim.notify("Recipe must be of kind table")
 		return { cmd = "" }
 	end
+	---@type Recipe
 	recipe = vim.tbl_deep_extend("force", M.opts.default_recipe, recipe)
 
 	--- Normalize the working directory

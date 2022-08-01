@@ -7,15 +7,15 @@ local function remove_escape_codes(s)
 end
 
 ---@param recipe Recipe
----@param callback fun(code: number)
----@return Task|nil
-function M.execute(recipe, callback)
+---@param on_start fun(task: Task|nil)
+---@param on_exit fun(code: number)
+function M.execute(recipe, on_start, on_exit)
 	local data = { "" }
 	local info = {
 		restarted = false,
 	}
 
-	local function on_exit(_, code)
+	local function exit(_, code)
 		if info.restarted then
 			return
 		end
@@ -26,7 +26,7 @@ function M.execute(recipe, callback)
 		require("recipe.util").qf(data, recipe, "c", code == 0)
 
 		api.nvim_set_current_dir(old_cwd)
-		callback(code)
+		on_exit(code)
 	end
 
 	local function on_output(_, lines)
@@ -37,27 +37,25 @@ function M.execute(recipe, callback)
 		-- Complete previous line
 		data[#data] = data[#data] .. remove_escape_codes(lines[1])
 
-		for i = 2, #data do
+		for i = 2, #lines do
 			data[#data + 1] = remove_escape_codes(lines[i])
 		end
 	end
 
-	vim.notify("Executing: " .. recipe.cmd)
-
 	local id = fn.jobstart(recipe.cmd, {
 		cwd = recipe.cwd,
 		on_stdout = on_output,
-		on_exit = on_exit,
+		on_exit = exit,
 		on_stderr = on_output,
 		env = recipe.env,
 	})
 
 	if id <= 0 then
 		vim.notify("Failed to start job", vim.log.levels.ERROR)
-		return nil
+		return on_start(nil)
 	end
 
-	return {
+	on_start({
 		stop = function()
 			fn.jobstop(id)
 			fn.jobwait({ id }, 1000)
@@ -70,7 +68,7 @@ function M.execute(recipe, callback)
 		end,
 		focus = function() end,
 		recipe = recipe,
-	}
+	})
 end
 
 return M

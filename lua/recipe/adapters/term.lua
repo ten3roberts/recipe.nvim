@@ -62,9 +62,9 @@ function M.open_win(config, bufnr)
 end
 
 ---@param recipe Recipe
----@param callback fun(code: number)
----@return Task|nil
-function M.execute(recipe, callback, win)
+---@param on_start fun(task: Task|nil)
+---@param on_exit fun(code: number)
+function M.execute(recipe, on_start, on_exit, win)
 	local bufnr = api.nvim_create_buf(false, true)
 
 	---@type TermConfig
@@ -77,7 +77,7 @@ function M.execute(recipe, callback, win)
 		restarted = false,
 	}
 
-	local function on_exit(_, code)
+	local function exit(_, code)
 		if info.restarted then
 			return
 		end
@@ -86,26 +86,26 @@ function M.execute(recipe, callback, win)
 			api.nvim_buf_delete(bufnr, {})
 		end
 
-		callback(code)
+		on_exit(code)
 	end
 
 	local id = fn.termopen(recipe.cmd, {
 		cwd = recipe.cwd,
-		on_exit = on_exit,
+		on_exit = exit,
 		env = recipe.env,
 	})
 
 	if id <= 0 then
 		vim.notify("Failed to start job", vim.log.levels.ERROR)
-		return nil
+		return on_start(nil)
 	end
 
-	return {
+	on_start({
 		stop = function()
 			fn.jobstop(id)
 			fn.jobwait({ id }, 1000)
 		end,
-		restart = function(cb)
+		restart = function(start, cb)
 			info.restarted = true
 
 			win = fn.bufwinid(bufnr)
@@ -113,7 +113,7 @@ function M.execute(recipe, callback, win)
 				win = nil
 			end
 
-			return M.execute(recipe, cb, win)
+			return M.execute(recipe, start, cb, win)
 		end,
 		focus = function()
 			win = fn.bufwinid(bufnr)
@@ -125,7 +125,7 @@ function M.execute(recipe, callback, win)
 			end
 		end,
 		recipe = recipe,
-	}
+	})
 end
 
 function M.on_exit() end

@@ -1,7 +1,8 @@
-local api = vim.api
 local config = require("recipe.config")
 local uv = vim.loop
 local fn = vim.fn
+
+local util = require("recipe.util")
 
 local M = {}
 
@@ -61,11 +62,31 @@ function M.spawn(key, recipe, callback)
 		local state = code == 0 and "Success" or string.format("Failure %d", code)
 
 		vim.notify(string.format("%s: %q %s", state, recipe.cmd, M.format_time(duration)), level)
-		task.callback(code)
+		for _, cb in ipairs(task.callbacks) do
+			cb(code)
+		end
 	end
 
 	for _, hook in ipairs(config.opts.hooks.pre) do
 		hook(recipe)
+	end
+
+	local adapter = adapters[recipe.kind]
+	if adapter == nil then
+		vim.notify(string.format("Invalid adapter: %s", recipe.kind), vim.log.levels.ERROR)
+		return
+	end
+
+	local function on_start(task)
+		task.recipe = recipe
+		tasks[key] = task
+
+		if task == nil then
+			util.error("Failed to launch : " .. vim.inspect(recipe))
+			return
+		end
+
+		task.callbacks = { callback or function(_) end }
 	end
 
 	-- Check if task is already running
@@ -73,32 +94,26 @@ function M.spawn(key, recipe, callback)
 		vim.notify("Task is already running")
 		local task = tasks[key]
 		if recipe.restart then
-			tasks[key] = task.restart(on_exit)
+			tasks[key] = task.restart(on_start, on_exit)
 			return
 		else
-			local old_cb = task.callback
-			task.callback = function(code)
-				if callback then
-					callback(code)
-				end
-				old_cb(code)
-			end
+			table.insert(task.callbacks, callback or function(_) end)
 			task.focus()
 			return
 		end
 	end
 
-	local adapter = adapters[recipe.kind]
-
-	if adapter == nil then
-		vim.notify(string.format("Invalid adapter: %s", recipe.kind), vim.log.levels.ERROR)
-		return
+	if config.opts.dotenv then
+		require("recipe.dotenv").get(
+			config.opts.dotenv,
+			vim.schedule_wrap(function(env)
+				recipe.env = vim.tbl_extend("keep", recipe.env, env)
+				adapter.execute(recipe, on_start, on_exit)
+			end)
+		)
+	else
+		adapter.execute(recipe, on_start, on_exit)
 	end
-
-	local task = adapter.execute(recipe, on_exit)
-	task.callback = callback or function(_) end
-
-	tasks[key] = task
 end
 
 local success_codes = {
@@ -130,45 +145,12 @@ local trusted_paths = nil
 local trusted_paths_dir = fn.stdpath("cache") .. "/recipe"
 local trusted_paths_path = trusted_paths_dir .. "/trusted_paths.json"
 
---- @diagnostic disable
-function M.read_file(path, callback)
-	uv.fs_open(path, "r", 438, function(err, fd)
-		if err then
-			return callback()
-		end
-		uv.fs_fstat(fd, function(err, stat)
-			assert(not err, err)
-			uv.fs_read(fd, stat.size, 0, function(err, data)
-				assert(not err, err)
-				uv.fs_close(fd, function(err)
-					assert(not err, err)
-					return callback(data)
-				end)
-			end)
-		end)
-	end)
-end
-
---- @diagnostic disable
-local function write_file(path, data, callback)
-	uv.fs_open(path, "w", 438, function(err, fd)
-		assert(not err, err)
-		uv.fs_write(fd, data, 0, function(err)
-			assert(not err, err)
-			uv.fs_close(fd, function(err)
-				assert(not err, err)
-				return callback()
-			end)
-		end)
-	end)
-end
-
 function M.trusted_paths(callback)
 	if trusted_paths then
 		return callback(trusted_paths)
 	end
 
-	M.read_file(
+	util.read_file(
 		trusted_paths_path,
 		vim.schedule_wrap(function(data)
 			trusted_paths = data and fn.json_decode(data) or {}
@@ -197,7 +179,7 @@ function M.trust_path(path, callback)
 		paths[path] = new
 		fn.mkdir(trusted_paths_dir, "p")
 		local data = fn.json_encode(trusted_paths)
-		write_file(trusted_paths_path, data, callback)
+		util.write_file(trusted_paths_path, data, callback)
 	end)
 end
 

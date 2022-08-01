@@ -1,6 +1,7 @@
 local api = vim.api
 local fn = vim.fn
 
+local util = require("recipe.util")
 local lib = require("recipe.lib")
 local config = require("recipe.config")
 
@@ -73,7 +74,7 @@ function M.load_recipes(force, path)
 
 	loaded_paths[cwd] = true
 
-	lib.read_file(
+	util.read_file(
 		path,
 		vim.schedule_wrap(function(data)
 			if not data or #data == 0 then
@@ -283,7 +284,7 @@ function M.pick()
 		f.last_use = vim.loop.hrtime() / 1000000000
 		recipe_frecency[key] = f
 
-		M.execute(recipe)
+		M.execute(recipe, key)
 	end)
 end
 
@@ -302,7 +303,17 @@ end
 local sl = require("recipe.statusline")
 function M.statusline()
 	local spinner = ""
+	local tasks = {}
+	for task in pairs(lib.get_tasks()) do
+		tasks[#tasks + 1] = task
+	end
 
+	if #tasks > 0 then
+		sl.start()
+		spinner = sl.get_spinner()
+	else
+		sl.stop()
+	end
 	return spinner
 end
 

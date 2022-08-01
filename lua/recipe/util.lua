@@ -71,9 +71,10 @@ function M.nvim_qf(data, recipe, ty, ok)
 	})
 end
 
-local has_qf, qf = pcall(require, "qf")
+local has_qf = pcall(require, "qf")
 
 if has_qf then
+	vim.notify("Has qf.nvim")
 	M.qf = M.nvim_qf
 else
 	M.qf = M.vim_qf
@@ -84,4 +85,43 @@ function M.notify(data, cmd)
 	vim.notify(string.format("%q:\n%s", cmd, s))
 end
 
+local uv = vim.loop
+
+function M.error(msg)
+	vim.notify(msg, vim.log.levels.ERROR)
+end
+
+---@param path string
+---@param callback fun(data: string|nil)
+function M.read_file(path, callback)
+	uv.fs_open(path, "r", 438, function(err, fd)
+		if err then
+			return callback()
+		end
+		uv.fs_fstat(fd, function(err, stat)
+			assert(not err, err)
+			uv.fs_read(fd, stat.size, 0, function(err, data)
+				assert(not err, err)
+				uv.fs_close(fd, function(err)
+					assert(not err, err)
+					return callback(data)
+				end)
+			end)
+		end)
+	end)
+end
+
+--- @diagnostic disable
+function M.write_file(path, data, callback)
+	uv.fs_open(path, "w", 438, function(err, fd)
+		assert(not err, err)
+		uv.fs_write(fd, data, 0, function(err)
+			assert(not err, err)
+			uv.fs_close(fd, function(err)
+				assert(not err, err)
+				return callback()
+			end)
+		end)
+	end)
+end
 return M
