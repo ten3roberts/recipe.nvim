@@ -22,7 +22,6 @@ local function tok_keyword(data, prev)
 	local head = string.sub(data, start, stop)
 	local tail = string.sub(data, stop + 1)
 
-	print(head, tail)
 	local keyword = keywords[head]
 	if keyword then
 		return { data = keyword, kind = "keyword" }, tail
@@ -240,8 +239,6 @@ local EOF = {
 
 ---@param tokens Token[]
 local function parse(tokens)
-	print("Parsing: " .. vim.inspect(tokens))
-
 	---@type Parser
 	local parser = {
 		tokens = tokens,
@@ -269,7 +266,6 @@ local function parse(tokens)
 				break
 			end
 
-			print("Parsed env var: " .. vim.inspect(var))
 			variables[var.key] = var.value
 		elseif tok.kind == "eof" then
 			break
@@ -299,9 +295,20 @@ function M.load(path, callback)
 			loaded_env = variables
 			vim.notify("Loaded env: " .. vim.inspect(loaded_env))
 			callback(loaded_env)
+		else
+			callback({})
 		end
 	end)
 end
+
+local group = vim.api.nvim_create_augroup("recipe-dotenv", { clear = true })
+
+vim.api.nvim_create_autocmd({ "BufWritePost" }, {
+	group = group,
+	callback = function()
+		loaded_env = nil
+	end,
+})
 
 function M.get(path, callback)
 	if loaded_env then

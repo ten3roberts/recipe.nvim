@@ -11,13 +11,16 @@ function M.get_compiler(cmd)
 	end
 end
 
-function M.vim_qf(data, recipe, ty, ok)
-	if ok then
+---@param title string
+---@param compiler string|nil
+---@param data string[]
+---@param open boolean|nil
+function M.vim_qf(title, compiler, data, open)
+	if not open then
 		vim.fn.setqflist({}, "r", {})
-		vim.cmd(ty .. "close")
+		vim.cmd("cclose")
 		return
 	end
-	local cmd = recipe.cmd
 
 	local old_c = vim.b.current_compiler
 
@@ -25,7 +28,6 @@ function M.vim_qf(data, recipe, ty, ok)
 
 	local old_makeprg = vim.o.makeprg
 
-	local compiler = M.get_compiler(recipe.cmd)
 	if compiler ~= nil then
 		vim.cmd("compiler! " .. compiler)
 	end
@@ -34,13 +36,8 @@ function M.vim_qf(data, recipe, ty, ok)
 		return
 	end
 
-	if ty == "c" then
-		vim.fn.setqflist({}, "r", { title = cmd, lines = data })
-		vim.cmd("copen | wincmd p")
-	else
-		vim.fn.setloclist(".", {}, "r", { title = cmd, lines = data })
-		vim.cmd("lopen | wincmd p")
-	end
+	vim.fn.setqflist({}, "r", { title = title, lines = data })
+	vim.cmd("copen | wincmd p")
 
 	vim.b.current_compiler = old_c
 	vim.opt.efm = old_efm
@@ -50,10 +47,11 @@ function M.vim_qf(data, recipe, ty, ok)
 	end
 end
 
-function M.nvim_qf(data, recipe, ty, ok)
-	local cmd = recipe.cmd
-
-	local compiler = M.get_compiler(recipe.cmd)
+---@param title string
+---@param compiler string|nil
+---@param data string[]
+---@param open boolean|nil
+function M.nvim_qf(title, compiler, data, open)
 	if compiler ~= nil then
 		vim.cmd("compiler! " .. compiler)
 	end
@@ -62,19 +60,18 @@ function M.nvim_qf(data, recipe, ty, ok)
 		return
 	end
 
-	require("qf").set(ty, {
-		title = cmd,
+	require("qf").set("c", {
+		title = title,
 		compiler = compiler,
 		lines = data,
 		tally = true,
-		open = not ok,
+		open = open,
 	})
 end
 
 local has_qf = pcall(require, "qf")
 
 if has_qf then
-	vim.notify("Has qf.nvim")
 	M.qf = M.nvim_qf
 else
 	M.qf = M.vim_qf

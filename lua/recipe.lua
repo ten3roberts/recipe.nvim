@@ -199,7 +199,6 @@ local recipe_frecency = {}
 local function recipe_score(recipe, now)
 	local f = recipe_frecency[recipe[1]] or { uses = 0, last_use = 0 }
 	local dur = now - f.last_use
-	print(string.format("Duration for: %s: %d", recipe[1], dur))
 
 	return (f.uses + 1) / dur * recipe[3]
 end

@@ -61,17 +61,41 @@ function M.open_win(config, bufnr)
 	end
 end
 
+local terminals = {}
+
+local function find_win(bufnr)
+	local win = fn.bufwinid(bufnr)
+	if win == -1 then
+		return nil
+	else
+		return win
+	end
+end
+
+---@param key string
 ---@param recipe Recipe
 ---@param on_start fun(task: Task|nil)
 ---@param on_exit fun(code: number)
-function M.execute(recipe, on_start, on_exit, win)
+function M.execute(key, recipe, on_start, on_exit, win)
+	print("here")
 	local bufnr = api.nvim_create_buf(false, true)
 
 	---@type TermConfig
 	local config = vim.tbl_deep_extend("keep", recipe.opts, require("recipe.config").opts.term)
+
+	print(vim.inspect(terminals))
+	local last_term = terminals[key]
+	if win == nil and last_term then
+		win = find_win(last_term)
+		vim.notify("Found existing window: " .. tostring(win))
+	end
+
 	win = win or M.open_win(config, bufnr)
 
+	api.nvim_set_current_win(win)
 	api.nvim_win_set_buf(win, bufnr)
+
+	terminals[key] = bufnr
 
 	local info = {
 		restarted = false,
@@ -113,7 +137,7 @@ function M.execute(recipe, on_start, on_exit, win)
 				win = nil
 			end
 
-			return M.execute(recipe, start, cb, win)
+			return M.execute(key, recipe, start, cb, win)
 		end,
 		focus = function()
 			win = fn.bufwinid(bufnr)

@@ -39,10 +39,11 @@ function M.launch(_, recipe, ok, opts)
 	dap.run(conf)
 end
 
+---@param _ string
 ---@param recipe Recipe
 ---@param on_start fun(task: Task|nil)
 ---@param on_exit fun(code: number)
-function M.execute(recipe, on_start, on_exit)
+function M.execute(_, recipe, on_start, on_exit)
 	M.setup()
 
 	local opts = recipe.opts

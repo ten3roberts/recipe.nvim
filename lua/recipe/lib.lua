@@ -108,11 +108,11 @@ function M.spawn(key, recipe, callback)
 			config.opts.dotenv,
 			vim.schedule_wrap(function(env)
 				recipe.env = vim.tbl_extend("keep", recipe.env, env)
-				adapter.execute(recipe, on_start, on_exit)
+				adapter.execute(key, recipe, on_start, on_exit)
 			end)
 		)
 	else
-		adapter.execute(recipe, on_start, on_exit)
+		adapter.execute(key, recipe, on_start, on_exit)
 	end
 end
 
