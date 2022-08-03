@@ -87,7 +87,6 @@ function M.execute(key, recipe, on_start, on_exit, win)
 	local last_term = terminals[key]
 	if win == nil and last_term then
 		win = find_win(last_term)
-		vim.notify("Found existing window: " .. tostring(win))
 	end
 
 	win = win or M.open_win(config, bufnr)
@@ -107,7 +106,8 @@ function M.execute(key, recipe, on_start, on_exit, win)
 		end
 
 		if config.auto_close and fn.bufloaded(bufnr) == 1 then
-			api.nvim_buf_delete(bufnr, {})
+			win = find_win(bufnr)
+			api.nvim_win_close(win, {})
 		end
 
 		on_exit(code)

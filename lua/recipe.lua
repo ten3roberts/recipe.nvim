@@ -261,7 +261,13 @@ function M.pick()
 			local key = val[1]
 			local recipe = val[2]
 
-			return string.format("%s %s%s - %s", lib.get_task(key) and "*" or " ", key, pad, recipe.cmd or recipe)
+			return string.format(
+				"%s %s%s - %s",
+				lib.get_task(key) and "*" or " ",
+				key:sub(1, 32),
+				pad,
+				recipe.cmd or recipe
+			)
 		end,
 	}
 

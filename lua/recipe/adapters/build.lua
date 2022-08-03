@@ -40,15 +40,16 @@ function M.execute(_, recipe, on_start, on_exit)
 	)
 
 	local function exit(_, code)
+		timer:stop()
+		timer:close()
+
 		if info.restarted then
 			return
 		end
+
 		set_qf(code ~= 0)
 
 		quickfix.release_lock(lock)
-
-		timer:stop()
-		timer:close()
 
 		on_exit(code)
 	end

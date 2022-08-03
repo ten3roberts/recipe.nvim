@@ -61,7 +61,7 @@ function M.set(lock, recipe, data, open)
 		local compiler = util.get_compiler(recipe.cmd)
 		local old_cwd = vim.fn.getcwd()
 		api.nvim_set_current_dir(recipe.cwd)
-		util.qf(recipe.cmd, compiler, data, open)
+		util.qf(recipe.cmd:sub(1, 32), compiler, data, open)
 		api.nvim_set_current_dir(old_cwd)
 	end
 
