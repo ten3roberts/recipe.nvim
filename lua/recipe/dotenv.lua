@@ -1,6 +1,5 @@
 local M = {}
 local util = require("recipe.util")
-local uv = vim.loop
 
 local keywords = { export = "export" }
 
@@ -10,10 +9,10 @@ local keywords = { export = "export" }
 ---@field is_str string|nil
 
 ---@param data string
----@param prev Token|nil
+---@param _ Token|nil
 ---@return Token|nil
 ---@return string|nil
-local function tok_keyword(data, prev)
+local function tok_keyword(data, _)
 	local start, stop = string.find(data, "^%w+")
 	if start == nil then
 		return nil, nil
@@ -258,7 +257,7 @@ local function parse(tokens)
 
 	local variables = {}
 
-	for i = 0, 20 do
+	while true do
 		local tok = parser:peek()
 		if tok.kind == "ident" then
 			local var = parse_var(parser)
@@ -279,57 +278,28 @@ local function parse(tokens)
 	return variables
 end
 
-local loaded_env = nil
+local memo = util.memoize_files()
 
 --- Loads an environment file, by default .env
 ---@param path string
----@param callback fun(env: { [string]: [string] })
+---@param callback fun(env: table<string, string> )
 function M.load(path, callback)
-	util.read_file(path or ".env", function(data)
-		if data then
-			local tokens = tokenize(data)
-			if not tokens then
-				util.error("Failed to tokenize dotenv")
-			end
-			local variables = parse(tokens)
-			loaded_env = variables
-			vim.notify("Loaded env: " .. vim.inspect(loaded_env))
-			callback(loaded_env)
-		else
-			callback({})
+	memo(path or ".env", function(data)
+		if not data then
+			return {}
 		end
-	end)
+
+		local tokens = tokenize(data)
+		if not tokens then
+			util.error("Failed to tokenize dotenv")
+			return {}
+		end
+
+		local env = parse(tokens)
+
+		vim.notify("Recipe: Loaded env: " .. vim.inspect(env))
+		return env
+	end, vim.schedule_wrap(callback))
 end
-
-local group = vim.api.nvim_create_augroup("recipe-dotenv", { clear = true })
-
-vim.api.nvim_create_autocmd({ "BufWritePost" }, {
-	group = group,
-	callback = function()
-		loaded_env = nil
-	end,
-})
-
-function M.get(path, callback)
-	if loaded_env then
-		callback(loaded_env)
-	else
-		M.load(path, callback)
-	end
-end
-
--- local test = [[
--- 	export HOME="is where the computer is"
--- 	RUST_LOG=info
--- 	RUST_BACKTRACE='backtrace'
--- 	MULTILINE="""
--- 	foo
--- 	bar
--- 	"""
--- ]]
-
--- local tokens = tokenize(test)
--- local variables = parse(tokens)
--- print(vim.inspect(variables))
 
 return M

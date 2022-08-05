@@ -101,16 +101,18 @@ function M.execute(key, recipe, on_start, on_exit, win)
 	}
 
 	local function exit(_, code)
-		if info.restarted then
-			return
-		end
+		vim.defer_fn(function()
+			if info.restarted then
+				return
+			end
 
-		if config.auto_close and fn.bufloaded(bufnr) == 1 then
-			win = find_win(bufnr)
-			api.nvim_win_close(win, {})
-		end
+			if config.auto_close and fn.bufloaded(bufnr) == 1 then
+				win = find_win(bufnr)
+				api.nvim_win_close(win, {})
+			end
 
-		on_exit(code)
+			on_exit(code)
+		end, 1000)
 	end
 
 	local id = fn.termopen(recipe.cmd, {

@@ -121,4 +121,87 @@ function M.write_file(path, data, callback)
 		end)
 	end)
 end
+
+---Execute `callback` when path changes.
+---If callback return `false` the watch is stopped
+---@param path string
+---@param callback fun(err, filename, event)
+function M.watch_file(path, callback)
+	local w = uv.new_fs_event()
+	path = uv.fs_realpath(path)
+	w:start(path, {}, function(...)
+		if callback(...) ~= true then
+			w:stop()
+		end
+	end)
+end
+
+---@param path string
+---@param parse fun(string): any
+---@return fun(cb: fun()|nil)
+function M.memoize_file(path, parse)
+	path = uv.fs_realpath(path)
+
+	local cache = nil
+	return function(callback)
+		if cache then
+			callback(cache)
+			return
+		end
+
+		if path == nil then
+			callback(cache)
+			return
+		end
+
+		util.read_file(path, function(data)
+			M.watch_file(path, function()
+				cache = nil
+			end)
+
+			local value = parse(data)
+
+			cache = value
+			callback(value)
+		end)
+	end
+end
+
+---comment
+---@return fun(path: string, parse: fun(data: string|nil), callback: fun(value: any))
+function M.memoize_files()
+	local cache = {}
+
+	return function(path, parse, callback)
+		path = uv.fs_realpath(path)
+
+		local cached = cache[path]
+		if cached then
+			callback(cached)
+			return
+		end
+
+		if path == nil then
+			local value = parse()
+
+			callback(value)
+			return
+		end
+
+		-- Load and parse the file
+
+		M.read_file(path, function(data)
+			M.watch_file(path, function()
+				vim.notify(path .. " changed")
+				cache[path] = nil
+			end)
+
+			local value = parse(data)
+
+			cache[path] = value
+			callback(value)
+		end)
+	end
+end
+
 return M

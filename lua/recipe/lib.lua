@@ -104,14 +104,13 @@ function M.spawn(key, recipe, callback)
 	end
 
 	if config.opts.dotenv then
-		require("recipe.dotenv").get(
-			config.opts.dotenv,
-			vim.schedule_wrap(function(env)
-				recipe.env = vim.tbl_extend("keep", recipe.env, env)
-				adapter.execute(key, recipe, on_start, on_exit)
-			end)
-		)
+		require("recipe.dotenv").load(config.opts.dotenv, function(env)
+			recipe.env = vim.tbl_extend("keep", recipe.env or {}, env)
+			vim.notify("Spawning: " .. recipe.cmd)
+			adapter.execute(key, recipe, on_start, on_exit)
+		end)
 	else
+		vim.notify("Spawning: " .. recipe.cmd)
 		adapter.execute(key, recipe, on_start, on_exit)
 	end
 end
@@ -143,7 +142,7 @@ end
 
 local trusted_paths = nil
 local trusted_paths_dir = fn.stdpath("cache") .. "/recipe"
-local trusted_paths_path = trusted_paths_dir .. "/trusted_paths.json"
+local trusted_path = trusted_paths_dir .. "/trusted_paths.json"
 
 function M.trusted_paths(callback)
 	if trusted_paths then
@@ -151,7 +150,7 @@ function M.trusted_paths(callback)
 	end
 
 	util.read_file(
-		trusted_paths_path,
+		trusted_path,
 		vim.schedule_wrap(function(data)
 			trusted_paths = data and fn.json_decode(data) or {}
 			callback(trusted_paths)
@@ -170,16 +169,15 @@ function M.trust_path(path, callback)
 	path = fn.fnamemodify(path, ":p")
 
 	M.trusted_paths(function(paths)
-		local cur = paths[path]
-		local new = fn.getftime(path)
-		if cur == new then
-			return callback()
-		end
+		local mtime = fn.getftime(path)
 
-		paths[path] = new
+		paths[path] = mtime
 		fn.mkdir(trusted_paths_dir, "p")
 		local data = fn.json_encode(trusted_paths)
-		util.write_file(trusted_paths_path, data, callback)
+		util.write_file(trusted_path, data, callback)
+		if callback then
+			callback()
+		end
 	end)
 end
 

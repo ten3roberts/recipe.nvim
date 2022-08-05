@@ -98,7 +98,7 @@ function M.execute(_, recipe, on_start, on_exit)
 			fn.jobstop(id)
 			fn.jobwait({ id }, 1000)
 
-			M.execute(recipe, start, cb)
+			M.execute(_, recipe, start, cb)
 		end,
 		focus = function() end,
 		recipe = recipe,

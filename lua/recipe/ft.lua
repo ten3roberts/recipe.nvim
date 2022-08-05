@@ -4,12 +4,12 @@ local filetypes = {
 		check = { cmd = "cargo check --bins --examples -q" },
 		clippy = { cmd = "cargo clippy -q" },
 		clean = { cmd = "cargo clean -q" },
-		run = { cmd = "cargo run", interactive = true },
-		test = { cmd = "cargo test --all-features", interactive = true, keep_open = false },
+		run = { cmd = "cargo run", kind = "term" },
+		test = { cmd = "cargo test --all-features", kind = "term", keep_open = false },
 		doc = { cmd = "cargo doc -q --open" },
 	},
 	python = {
-		run = { cmd = "python %", interactive = true },
+		run = { cmd = "python %", kind = "term" },
 		build = { cmd = "python -m py_compile %" },
 		check = { cmd = "python -m py_compile %" },
 	},
@@ -29,7 +29,7 @@ local filetypes = {
 		run = { cmd = "lua %" },
 	},
 	svelte = {
-		run = { cmd = "npm run dev -- --open", interactive = true },
+		run = { cmd = "npm run dev -- --open", kind = "term" },
 	},
 }
 
