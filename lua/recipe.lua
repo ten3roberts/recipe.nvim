@@ -159,7 +159,6 @@ end
 ---@param name string
 ---@param callback fun(code: number)|nil
 function M.bake(name, callback)
-	vim.notify("Bake")
 	M.load_recipes(function(r)
 		local custom = config.opts.custom_recipes
 		local recipe = r[name] or custom.global[name] or (custom[vim.o.ft] or {})[name]

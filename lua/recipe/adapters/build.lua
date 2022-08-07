@@ -84,7 +84,7 @@ function M.execute(_, recipe, on_start, on_exit)
 	})
 
 	if id <= 0 then
-		vim.notify("Failed to start job", vim.log.levels.ERROR)
+		util.error("Failed to start job")
 		return on_start(nil)
 	end
 
