@@ -124,6 +124,7 @@ function M.load_recipes(callback)
 			else
 				lib.is_trusted(path, function(trusted)
 					if trusted then
+						cache[path] = true
 						return parse(data)
 					else
 						local mtime = fn.getftime(path)
