@@ -65,7 +65,7 @@ local cache = {}
 function M.load_recipes(callback)
 	local path = vim.loop.fs_realpath(config.opts.recipes_file)
 
-	if cache[path] then
+	if not path or cache[path] then
 		return callback(__recipes)
 	end
 
@@ -260,7 +260,6 @@ local function order(recipes)
 end
 
 function M.pick()
-	vim.notify("Pick")
 	M.load_recipes(function(recipes)
 		local items = order(recipes)
 

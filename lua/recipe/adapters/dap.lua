@@ -54,6 +54,7 @@ function M.execute(_, recipe, on_start, on_exit)
 		name = "Recipe " .. recipe.cmd,
 		program = recipe.cmd,
 		justMyCode = true,
+		env = recipe.env,
 	}
 
 	dap.run(conf, { env = recipe.env, cwd = recipe.cwd })

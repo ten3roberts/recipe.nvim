@@ -37,7 +37,7 @@ M.opts = {
 	---@class Recipe
 	---@field cmd string
 	---@field cwd string
-	---@field kind string
+	---@field kind string one of build,term,dap or a custom adapter
 	---@field plain boolean
 	---@field env table|nil
 	---@field opts table Extra options for the current backend

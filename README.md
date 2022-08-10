@@ -87,38 +87,70 @@ tables which themselves are recipes, or a mix of both. This is useful for
 
 ## Configuration
 ```lua
-M.config = {
-  -- Configure the terminal for interactive commands
-  term = {
-    height = 0.7,
-    width = 0.5,
-    type = "smart", -- float | split | vsplit
-    border = "shadow",
-    jump_to_end = true,
-  },
-  -- Change the file for looking for recipes
-  recipes_file = "recipes.json",
-  --- Define custom global recipes, either globally or by filetype as key
-  custom_recipes = {
-    rust = {
-      upgrade = "cargo upgrade --workspace",
-    },
-    global = {
-      open = "xdg-open %:h",
-      open_f = "xdg-open <cfile>"
-      term = { cmd = vim.env.SHELL, kind = "term" }
-    }
-  },
-  -- Every recipe will be merged with the default to provide unspecified fields
-  default_recipe = {
-    interactive = false,
-    restart = false,
-    action = "qf",
-    uses = 0,
-    last_access = 0,
-    keep_open = false,
-    focus = true,
-  },
+---@class Task
+---@field stop fun()
+---@field focus fun()
+---@field restart fun(on_start: fun(task: Task|nil), on_exit: fun(code: number): Task|nil): Task
+---@field callbacks fun(code: number)[] added by lib
+---@field recipe Recipe
+
+---@class Config
+---@field custom_recipes table<string, Recipe>
+---@field term TermConfig customize terminal
+---@field default_recipe Recipe
+---@field adapter table
+---@field dotenv string Load path as dotenv before spawn
+M.opts = {
+	---@class TermConfig
+	term = {
+		height = 0.7,
+		width = 0.5,
+		type = "smart",
+		border = "single",
+		jump_to_end = true,
+		auto_close = false,
+	},
+	recipes_file = "recipes.json",
+	--- Define custom global recipes, either globally or by filetype as key
+	custom_recipes = require("recipe.ft"),
+	hooks = {
+		pre = {
+			function(_)
+				vim.cmd(":wa")
+			end,
+		},
+	},
+
+	---@class Recipe
+	---@field cmd string
+	---@field cwd string
+	---@field kind string one of build,term,dap or a custom adapter
+	---@field plain boolean
+	---@field env table|nil
+	---@field opts table Extra options for the current backend
+	---@field depends_on (string|Recipe)[]
+	default_recipe = {
+		cmd = "",
+		kind = "build",
+		opts = {},
+		restart = false,
+		plain = false,
+		depends_on = {},
+		env = { __type = "table" },
+	},
+
+	adapters = {
+		term = require("recipe.adapters.term"),
+		build = require("recipe.adapters.build"),
+		dap = require("recipe.adapters.dap"),
+	},
+
+	debug_adapters = {
+		rust = require("recipe.debug_adapters").codelldb,
+		c = require("recipe.debug_adapters").codelldb,
+		cpp = require("recipe.debug_adapters").codelldb,
+	},
+	dotenv = ".env",
 }
 ```
 
@@ -128,6 +160,9 @@ Recipe supports launching a DAP debugging session on a successful build.
 
 ```json
 {
+  "build": {
+    "cmd": "cargo build"
+  },
   "debug-rust": {
     "cmd": "./target/debug/myprogram",
     "kind": "dap",
@@ -193,7 +228,7 @@ or
 Or why not
 
 ```lua
-require "recipe".execute { cmd = "cargo run", interactive = true, restart = true }
+require "recipe".execute { cmd = "cargo run", kind = "term", restart = true }
 ```
 
 If these terminals are to be run from the pick menu, you can add them to the
