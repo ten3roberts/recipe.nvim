@@ -91,12 +91,13 @@ function M.spawn(key, recipe, callback)
 
 	-- Check if task is already running
 	if tasks[key] then
-		vim.notify("Task is already running")
 		local task = tasks[key]
 		if recipe.restart then
+			vim.notify("Restarting " .. key)
 			tasks[key] = task.restart(on_start, on_exit)
 			return
 		else
+			vim.notify("Focusing " .. key)
 			table.insert(task.callbacks, callback or function(_) end)
 			task.focus()
 			return

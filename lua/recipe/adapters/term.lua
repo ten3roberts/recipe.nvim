@@ -77,13 +77,11 @@ end
 ---@param on_start fun(task: Task|nil)
 ---@param on_exit fun(code: number)
 function M.execute(key, recipe, on_start, on_exit, win)
-	print("here")
 	local bufnr = api.nvim_create_buf(false, true)
 
 	---@type TermConfig
 	local config = vim.tbl_deep_extend("keep", recipe.opts, require("recipe.config").opts.term)
 
-	print(vim.inspect(terminals))
 	local last_term = terminals[key]
 	if win == nil and last_term then
 		win = find_win(last_term)
@@ -106,13 +104,13 @@ function M.execute(key, recipe, on_start, on_exit, win)
 				return
 			end
 
-			if config.auto_close and fn.bufloaded(bufnr) == 1 then
+			if code == 0 and config.auto_close and fn.bufloaded(bufnr) == 1 then
 				win = find_win(bufnr)
 				api.nvim_win_close(win, {})
 			end
 
 			on_exit(code)
-		end, 1000)
+		end, 100)
 	end
 
 	local id = fn.termopen(recipe.cmd, {
