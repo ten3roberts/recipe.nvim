@@ -61,7 +61,7 @@ function M.spawn(key, recipe, callback)
 
 		local state = code == 0 and "Success" or string.format("Failure %d", code)
 
-		vim.notify(string.format("%s: %q %s", state, recipe.cmd:sub(1, 32), M.format_time(duration)), level)
+		vim.notify(string.format("%s: %q %s", state, recipe.cmd:sub(1, 64), M.format_time(duration)), level)
 		for _, cb in ipairs(task.callbacks) do
 			cb(code)
 		end

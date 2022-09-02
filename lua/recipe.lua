@@ -282,7 +282,7 @@ function M.pick()
 				return string.format(
 					"%s %s%s - %s",
 					lib.get_task(key) and "*" or " ",
-					key:sub(1, 32),
+					key:sub(1, 64),
 					pad,
 					recipe.cmd or recipe
 				)

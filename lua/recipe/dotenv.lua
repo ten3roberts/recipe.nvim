@@ -297,7 +297,12 @@ function M.load(path, callback)
 
 		local env = parse(tokens)
 
-		vim.notify("Recipe: Loaded env: " .. vim.inspect(env))
+		local t = {}
+		for key, value in pairs(env) do
+			t[#t + 1] = key .. "=" .. value
+		end
+
+		vim.notify("Loaded env:\n" .. table.concat(t, "\n"))
 		return env
 	end, vim.schedule_wrap(callback))
 end

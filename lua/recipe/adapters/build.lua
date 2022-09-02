@@ -76,6 +76,8 @@ function M.execute(_, recipe, on_start, on_exit)
 	end
 
 	local id = fn.jobstart(recipe.cmd, {
+		stdout_buffered = true,
+		stderr_buffered = true,
 		cwd = recipe.cwd,
 		on_stdout = on_output,
 		on_exit = exit,
