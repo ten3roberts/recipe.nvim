@@ -73,6 +73,7 @@ function M.make_recipe(recipe)
 		vim.notify("Recipe must be of kind table")
 		return { cmd = "" }
 	end
+
 	---@type Recipe
 	recipe = vim.tbl_deep_extend("force", M.opts.default_recipe, recipe)
 

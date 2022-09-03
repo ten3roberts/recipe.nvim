@@ -81,8 +81,8 @@ function M.execute(key, recipe, on_start, on_exit, win)
 
 	local bufnr = api.nvim_create_buf(false, true)
 
-	---@kind TermConfig
-	local config = vim.tbl_deep_extend("keep", recipe.opts, require("recipe.config").opts.term)
+	---@type TermConfig
+	local config = vim.tbl_deep_extend("force", require("recipe.config").opts.term, recipe.opts)
 
 	local info = {
 		restarted = false,
@@ -122,6 +122,8 @@ function M.execute(key, recipe, on_start, on_exit, win)
 	api.nvim_set_current_buf(bufnr)
 
 	local id = fn.termopen(recipe.cmd, {
+		stdout_buffered = true,
+		stderr_buffered = true,
 		cwd = recipe.cwd,
 		on_exit = exit,
 		env = recipe.env,
