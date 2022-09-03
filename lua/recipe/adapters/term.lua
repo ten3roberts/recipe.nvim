@@ -20,7 +20,7 @@ function M.open_win(config, bufnr)
 	local row = math.ceil((lines - height) / 2 - cmdheight)
 	local col = math.ceil((cols - width) / 2)
 
-	if config.type == "float" then
+	if config.kind == "float" then
 		local win = api.nvim_open_win(bufnr, true, {
 			relative = "editor",
 			row = row,
@@ -44,20 +44,20 @@ function M.open_win(config, bufnr)
 		})
 
 		return win
-	elseif config.type == "split" then
+	elseif config.kind == "split" then
 		vim.cmd("split")
 		return vim.api.nvim_get_current_win()
-	elseif config.type == "vsplit" then
+	elseif config.kind == "vsplit" then
 		vim.cmd("vsplit")
 		return vim.api.nvim_get_current_win()
-	elseif config.type == "smart" then
+	elseif config.kind == "smart" then
 		local font_lh_ratio = 0.3
 		local w, h = api.nvim_win_get_width(0) * font_lh_ratio, api.nvim_win_get_height(0)
 		local cmd = (w > h) and "vsplit" or "split"
 		vim.cmd(cmd)
 		return vim.api.nvim_get_current_win()
 	else
-		api.nvim_err_writeln("Recipe: Unknown terminal mode " .. config.type)
+		api.nvim_err_writeln("Recipe: Unknown terminal mode " .. config.kind)
 	end
 end
 
@@ -77,10 +77,17 @@ end
 ---@param on_start fun(task: Task|nil)
 ---@param on_exit fun(code: number)
 function M.execute(key, recipe, on_start, on_exit, win)
+	local util = require("recipe.util")
+
 	local bufnr = api.nvim_create_buf(false, true)
 
-	---@type TermConfig
+	---@kind TermConfig
 	local config = vim.tbl_deep_extend("keep", recipe.opts, require("recipe.config").opts.term)
+
+	local info = {
+		restarted = false,
+		code = nil,
+	}
 
 	local last_term = terminals[key]
 	if win == nil and last_term then
@@ -94,24 +101,25 @@ function M.execute(key, recipe, on_start, on_exit, win)
 
 	terminals[key] = bufnr
 
-	local info = {
-		restarted = false,
-	}
-
 	local function exit(_, code)
-		vim.defer_fn(function()
-			if info.restarted then
-				return
-			end
+		if info.restarted then
+			return
+		end
 
-			if code == 0 and config.auto_close and fn.bufloaded(bufnr) == 1 then
-				win = find_win(bufnr)
+		info.code = code
+
+		if code == 0 and config.auto_close and fn.bufloaded(bufnr) == 1 then
+			win = find_win(bufnr)
+			if win and api.nvim_win_is_valid(win) then
 				api.nvim_win_close(win, {})
 			end
+		end
 
-			on_exit(code)
-		end, 100)
+		on_exit(code)
 	end
+
+	local oldbuf = api.nvim_get_current_buf()
+	api.nvim_set_current_buf(bufnr)
 
 	local id = fn.termopen(recipe.cmd, {
 		cwd = recipe.cwd,
@@ -119,10 +127,14 @@ function M.execute(key, recipe, on_start, on_exit, win)
 		env = recipe.env,
 	})
 
+	api.nvim_set_current_buf(oldbuf)
+
 	if id <= 0 then
-		vim.notify("Failed to start job", vim.log.levels.ERROR)
+		util.error("Failed to start job")
 		return on_start(nil)
 	end
+
+	info.running = true
 
 	on_start({
 		stop = function()
