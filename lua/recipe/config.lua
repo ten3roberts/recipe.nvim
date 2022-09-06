@@ -18,8 +18,8 @@ M.opts = {
 	term = {
 		height = 0.7,
 		width = 0.5,
-		type = "smart",
-		border = "single",
+		kind = "smart",
+		border = "shadow",
 		jump_to_end = true,
 		auto_close = false,
 	},
