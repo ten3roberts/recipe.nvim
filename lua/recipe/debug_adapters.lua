@@ -1,6 +1,11 @@
 local has_mason, mason = pcall(require, "mason-registry")
 
 local codelldb = function(on_adapter)
+	if not has_mason then
+		local util = require("recipe.util")
+		util.error("Codelldb requires mason.nvim for installation")
+		return
+	end
 	local pkg = mason.get_package("codelldb")
 
 	local function run()
@@ -9,10 +14,8 @@ local codelldb = function(on_adapter)
 		local stdout = vim.loop.new_pipe(false)
 		local stderr = vim.loop.new_pipe(false)
 
-		vim.notify("Installed codelldb")
 		local cmd = pkg:get_install_path() .. "/extension/adapter/codelldb"
 
-		vim.notify("Spawning codelldb server: " .. cmd)
 		local handle, pid_or_err
 
 		local opts = {
@@ -63,7 +66,6 @@ local codelldb = function(on_adapter)
 		end
 		pkg:install():once("install:success", run)
 	else
-		vim.notify("codelldb already installed")
 		run()
 	end
 end
