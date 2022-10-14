@@ -8,6 +8,7 @@ local config = require("recipe.config")
 local M = {}
 
 local modified_in_vim = {}
+
 ---Provide a custom config
 ---@param opts Config
 function M.setup(opts)
@@ -60,13 +61,15 @@ M.stop_all = lib.stop_all
 
 local cache = {}
 
+local memo = util.memoize_files()
+
 --- Loads recipes from `recipes.json`
 ---@param callback fun(recipes: table<string, Recipe>)
 function M.load_recipes(callback)
 	local path = vim.loop.fs_realpath(config.opts.recipes_file)
 
-	if not path or cache[path] then
-		return callback(__recipes)
+	if not path then
+		return callback({})
 	end
 
 	local function parse(data)
@@ -83,76 +86,73 @@ function M.load_recipes(callback)
 		api.nvim_set_current_dir(cwd)
 
 		local count = 0
+		local result = {}
 		for k, v in pairs(obj) do
 			if type(k) ~= "string" then
 				api.nvim_err_writeln("Expected string key in %q", path)
 				return
 			end
-
 			count = count + 1
 
-			M.insert(k, v)
+			v = config.make_recipe(v)
+			result[k] = v
 		end
 
 		api.nvim_set_current_dir(old_cwd)
 
 		vim.notify(string.format("Loaded %d recipes", count))
 
-		callback(__recipes)
+		return result
 	end
 
-	util.read_file(
-		path,
-		vim.schedule_wrap(function(data)
-			util.watch_file(path, function()
-				vim.notify(path .. " recipes changed")
-				cache[path] = nil
-			end)
-
-			if not data or #data == 0 then
-				return
+	local function read()
+		memo(path, function(data)
+			if not data then
+				return {}
 			end
 
-			if modified_in_vim[path] then
-				lib.trust_path(path, function()
-					vim.notify("Trusted: " .. path)
-				end)
+			modified_in_vim[path] = nil
 
-				modified_in_vim[path] = nil
+			local value = parse(data)
+			return value
+		end, callback)
+	end
 
-				return parse(data)
+	if modified_in_vim[path] then
+		lib.trust_path(path, function()
+			vim.notify("Trusted: " .. path)
+		end)
+		read()
+	else
+		lib.is_trusted(path, function(trusted)
+			if trusted then
+				cache[path] = true
+				return read()
 			else
-				lib.is_trusted(path, function(trusted)
-					if trusted then
-						cache[path] = true
-						return parse(data)
-					else
-						local mtime = fn.getftime(path)
-						local strtime = fn.strftime("%c", mtime)
-						local dur = lib.format_time((fn.localtime() - mtime) * 1000)
-						local trust = fn.confirm(
-							string.format("Trust recipes from %q?\nModified %s (%s ago)", path, strtime, dur),
-							"&Yes\n&No\n&View file",
-							2
-						)
-						if trust == 1 then
-							lib.trust_path(path, function() end)
-							cache[path] = true
-							return parse(data)
-						elseif trust == 2 then
-							cache[path] = true
-							vim.notify(string.format("%q was not trusted. No recipes read", path), vim.log.levels.WARN)
-						elseif trust == 3 then
-							vim.cmd("edit " .. fn.fnameescape(path))
-							vim.notify("Viewing recipes. Use :w to accept and trust file")
-						end
+				local mtime = fn.getftime(path)
+				local strtime = fn.strftime("%c", mtime)
+				local dur = lib.format_time((fn.localtime() - mtime) * 1000)
+				local trust = fn.confirm(
+					string.format("Trust recipes from %q?\nModified %s (%s ago)", path, strtime, dur),
+					"&Yes\n&No\n&View file",
+					2
+				)
+				if trust == 1 then
+					lib.trust_path(path, function() end)
+					cache[path] = true
+					return read()
+				elseif trust == 2 then
+					cache[path] = true
+					vim.notify(string.format("%q was not trusted. No recipes read", path), vim.log.levels.WARN)
+				elseif trust == 3 then
+					vim.cmd("edit " .. fn.fnameescape(path))
+					vim.notify("Viewing recipes. Use :w to accept and trust file")
+				end
 
-						return {}
-					end
-				end)
+				return {}
 			end
 		end)
-	)
+	end
 end
 
 --- Execute a recipe by name asynchronously

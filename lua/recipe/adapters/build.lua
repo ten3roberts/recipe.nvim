@@ -1,11 +1,13 @@
 local uv = vim.loop
 local M = {}
 local util = require("recipe.util")
-local api = vim.api
 local fn = vim.fn
 
 local function remove_escape_codes(s)
-	return s:gsub("\x1b%[.-m", ""):gsub("\r", "")
+	-- from: https://stackoverflow.com/questions/48948630/lua-ansi-escapes-pattern
+	local ansi_escape_sequence_pattern = "[\27\155][][()#;?%d]*[A-PRZcf-ntqry=><~]"
+
+	return s:gsub(ansi_escape_sequence_pattern, ""):gsub("\r", "")
 end
 
 local quickfix = require("recipe.quickfix")
@@ -76,8 +78,6 @@ function M.execute(_, recipe, on_start, on_exit)
 	end
 
 	local id = fn.jobstart(recipe.cmd, {
-		stdout_buffered = true,
-		stderr_buffered = true,
 		cwd = recipe.cwd,
 		on_stdout = on_output,
 		on_exit = exit,

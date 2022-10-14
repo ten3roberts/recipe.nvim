@@ -122,8 +122,6 @@ function M.execute(key, recipe, on_start, on_exit, win)
 	api.nvim_set_current_buf(bufnr)
 
 	local id = fn.termopen(recipe.cmd, {
-		stdout_buffered = true,
-		stderr_buffered = true,
 		cwd = recipe.cwd,
 		on_exit = exit,
 		env = recipe.env,

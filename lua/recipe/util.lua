@@ -190,17 +190,20 @@ function M.memoize_files()
 
 		-- Load and parse the file
 
-		M.read_file(path, function(data)
-			M.watch_file(path, function()
-				vim.notify(path .. " changed")
-				cache[path] = nil
+		M.read_file(
+			path,
+			vim.schedule_wrap(function(data)
+				M.watch_file(path, function()
+					vim.notify(path .. " changed")
+					cache[path] = nil
+				end)
+
+				local value = parse(data)
+
+				cache[path] = value
+				callback(value)
 			end)
-
-			local value = parse(data)
-
-			cache[path] = value
-			callback(value)
-		end)
+		)
 	end
 end
 
