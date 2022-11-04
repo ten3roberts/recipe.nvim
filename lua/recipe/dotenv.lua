@@ -48,6 +48,18 @@ local function tok_ident(data, _)
 	return { data = head, kind = "ident" }, tail
 end
 
+local function tok_comment(data, _)
+	local start, stop = string.find(data, "^#[^\n]*")
+	if start == nil then
+		return nil, nil
+	end
+
+	local head = string.sub(data, start, stop)
+	local tail = string.sub(data, stop + 1)
+
+	return { data = head, kind = "comment" }, tail
+end
+
 local symbols = { ["="] = "=" }
 local function tok_symbol(data, _)
 	local sym = symbols[data:sub(1, 1)]
@@ -98,13 +110,9 @@ local function tok_string(data, prev)
 
 	local in_escape = false
 
-	local len = data:find(prev.is_str)
-	if len == nil then
-		util.error("Unterminated string near: " .. data:sub(1, math.min(#data, 16)))
-		return
-	end
-
-	for i = 1, len - 1 do
+	local consumed = 0
+	for i = 1, #data do
+		consumed = consumed + 1
 		local c = data:sub(i, i)
 
 		if in_escape then
@@ -112,18 +120,22 @@ local function tok_string(data, prev)
 				s[#s + 1] = "\n"
 			elseif c == '"' then
 				s[#s + 1] = '"'
+			elseif c == "'" then
+				s[#s + 1] = "'"
 			else
-				util.error("unknown escape: " .. c)
+				return util.error("unknown escape: " .. c)
 			end
 			in_escape = false
 		elseif c == "\\" then
 			in_escape = true
+		elseif c == prev.is_str then
+			break
 		else
 			s[#s + 1] = c
 		end
 	end
 
-	local tail = string.sub(data, len)
+	local tail = string.sub(data, consumed)
 
 	return { data = table.concat(s), kind = "string", is_str = prev.is_str }, tail
 end
@@ -137,6 +149,7 @@ local tokenizers = {
 	tok_ident,
 	tok_string,
 	tok_whitespace,
+	tok_comment,
 }
 
 ---@return table|nil
@@ -163,7 +176,7 @@ local function tokenize(data)
 	local prev = { data = "", kind = "whitespace" }
 	local i = 0
 
-	while #data > 0 do
+	while #data > 0 and i < 100 do
 		local token, tail = tok_next(data, prev)
 		if not token or not tail then
 			util.error("Failed to parse dotenv. Unexpected near: " .. data:sub(1, math.min(#data, 16)))
@@ -268,10 +281,11 @@ local function parse(tokens)
 			variables[var.key] = var.value
 		elseif tok.kind == "eof" then
 			break
-		elseif tok.kind == "keyword" or tok.kind == "whitespace" then
+		elseif tok.kind == "keyword" or tok.kind == "whitespace" or tok.kind == "comment" then
 			parser:take()
 		else
 			util.error("Unexpected token: " .. vim.inspect(tok))
+			return
 		end
 	end
 
@@ -281,10 +295,11 @@ end
 local memo = util.memoize_files()
 
 --- Loads an environment file, by default .env
+---@async
 ---@param path string
----@param callback fun(env: table<string, string> )
-function M.load(path, callback)
-	memo(path or ".env", function(data)
+---@return table<string, string>, boolean
+function M.load(path)
+	return memo(path or ".env", function(data)
 		if not data then
 			return {}
 		end
@@ -304,7 +319,24 @@ function M.load(path, callback)
 
 		vim.notify("Loaded env:\n" .. table.concat(t, "\n"))
 		return env
-	end, vim.schedule_wrap(callback))
+	end)
+end
+
+function M.test()
+	local async = require("plenary.async")
+	local _ = async.util.block_on(function()
+		return M.load("./.env")
+	end)
+
+	local env, loaded = async.util.block_on(function()
+		return M.load("./.env")
+	end)
+
+	assert(not loaded, "Env should be cached")
+	print("Env: ", vim.inspect(env))
+
+	assert(env.TEST == "foo", vim.inspect(env))
+	assert(env.NUMBER == "\nFor'\"")
 end
 
 return M

@@ -1,4 +1,7 @@
 local M = {}
+local core = require("recipe.core")
+local Recipe = core.Recipe
+local util = require("recipe.util")
 
 ---@class Task
 ---@field stop fun()
@@ -24,8 +27,44 @@ M.opts = {
 		auto_close = false,
 	},
 	recipes_file = "recipes.json",
-	--- Define custom global recipes, either globally or by filetype as key
-	custom_recipes = require("recipe.ft"),
+	--- Define custom recipes, global and per filetype
+	custom_recipes = {
+		global = {},
+		filetypes = {
+			rust = {
+				build = { cmd = "cargo build --bins -q" },
+				check = { cmd = "cargo check --bins --examples -q" },
+				clippy = { cmd = "cargo clippy -q" },
+				clean = { cmd = "cargo clean -q" },
+				run = { cmd = "cargo run", kind = "term" },
+				test = { cmd = "cargo test --all-features", kind = "term", keep_open = false },
+				doc = { cmd = "cargo doc -q --open" },
+			},
+			python = {
+				run = { cmd = "python %", kind = "term" },
+				build = { cmd = "python -m py_compile %" },
+				check = { cmd = "python -m py_compile %" },
+			},
+			glsl = {
+				check = { cmd = "glslangValidator -V %" },
+			},
+			html = {
+				build = { cmd = "live-server %" },
+				check = { cmd = "live-server %" },
+				run = { cmd = "live-server %" },
+			},
+			lua = {
+				build = { cmd = "luac %" },
+				check = { cmd = "luac %" },
+				clean = { cmd = "rm luac.out" },
+				lint = { cmd = "luac %" },
+				run = { cmd = "lua %" },
+			},
+			svelte = {
+				run = { cmd = "npm run dev -- --open", kind = "term" },
+			},
+		},
+	},
 	hooks = {
 		pre = {
 			function(_)
@@ -34,22 +73,11 @@ M.opts = {
 		},
 	},
 
-	---@class Recipe
-	---@field cmd string
-	---@field cwd string
-	---@field kind string one of build,term,dap or a custom adapter
-	---@field plain boolean
-	---@field env table|nil
-	---@field opts table Extra options for the current backend
-	---@field depends_on (string|Recipe)[]
-	default_recipe = {
-		cmd = "",
-		kind = "build",
-		opts = {},
-		restart = false,
-		plain = false,
-		depends_on = {},
-		env = { __type = "table" },
+	---@type ProviderDef[]
+	providers = {
+		{ name = "recipes" },
+		{ name = "ft" },
+		{ name = "custom" },
 	},
 
 	adapters = {
@@ -63,34 +91,17 @@ M.opts = {
 		c = require("recipe.debug_adapters").codelldb,
 		cpp = require("recipe.debug_adapters").codelldb,
 	},
+
 	dotenv = ".env",
 }
-
----@param recipe Recipe
----@tag recipe.make_recipe
-function M.make_recipe(recipe)
-	if type(recipe) ~= "table" then
-		vim.notify("Recipe must be of kind table")
-		return { cmd = "" }
-	end
-
-	---@type Recipe
-	recipe = vim.tbl_deep_extend("force", M.opts.default_recipe, recipe)
-
-	--- Normalize the working directory
-	recipe.cwd = vim.loop.fs_realpath(recipe.cwd or ".")
-
-	return recipe
-end
 
 function M.setup(config)
 	M.opts = vim.tbl_deep_extend("force", M.opts, config or {})
 
-	for _, v in pairs(M.opts.custom_recipes) do
-		for name, recipe in pairs(v) do
-			v[name] = recipe
-		end
-	end
+	--- Setup the default providers
+	require("recipe.providers.recipes").setup()
+	require("recipe.providers.custom").setup({ config.custom_recipes.global })
+	require("recipe.providers.ft").setup({ config.custom_recipes.filetypes })
 end
 
 return M

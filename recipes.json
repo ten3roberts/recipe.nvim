@@ -1,36 +1,36 @@
 {
-    "build": {
-        "cmd": "cargo build",
-        "cwd": "../../rust/waves/"
-    },
-    "py": {
-        "cmd": "python",
-        "kind": "term"
-    },
-    "luacheck": {
-        "cmd": "luac %"
-    },
-    "lua-repl": {
-        "cmd": "lua",
-        "kind": "term",
-        "restart": true
-    },
-    "local_find": {
-        "cmd": "find . -type f"
-    },
-    "sleep": {
-        "cmd": "sleep 5"
-    },
-    "long-process": {
-        "cmd": "notify-send Hello There",
-        "depends_on": [
-            "sleep",
-            {
-                "cmd": "firefox --url 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'",
-                "depends_on": [
-                    "sleep"
-                ]
-            }
-        ]
+  "build": {
+    "cmd": "cargo build",
+    "cwd": "../../rust/waves/"
+  },
+  "py": {
+    "cmd": "python",
+    "kind": "term"
+  },
+  "luacheck": {
+    "cmd": "luac %"
+  },
+  "lua-repl": {
+    "cmd": "lua",
+    "kind": "term",
+    "restart": true
+  },
+  "local_find": {
+    "cmd": "find . -type f"
+  },
+  "sleep": {
+    "cmd": "sleep 5"
+  },
+  "long-process": {
+    "cmd": "notify-send Hello There",
+    "components": {
+      "dependencies": [
+        "sleep",
+        {
+          "cmd": "firefox --url 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'",
+          "depends_on": ["sleep"]
+        }
+      ]
     }
+  }
 }

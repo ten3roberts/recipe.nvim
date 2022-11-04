@@ -6,6 +6,7 @@ local util = require("recipe.util")
 
 local M = {}
 
+local async = require("plenary.async")
 function M.format_time(ms)
 	local d, h, m, s = 0, 0, 0, 0
 	d = math.floor(ms / 86400000)
@@ -41,19 +42,19 @@ end
 local tasks = {}
 
 --- Spawns a recipe
----@param key string
+---@async
 ---@param recipe Recipe
 ---@param callback fun(code: number)|nil
-function M.spawn(key, recipe, callback)
+function M.spawn(recipe, callback)
 	local adapters = config.opts.adapters
-	recipe.cmd = recipe.plain and recipe.cmd
+	recipe.cmd = recipe.components.plain and recipe.cmd
 		or recipe.cmd:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)
 
 	local start_time = uv.hrtime()
 
 	local function on_exit(code)
-		local task = tasks[key]
-		tasks[key] = nil
+		local task = tasks[recipe.name]
+		tasks[recipe.name] = nil
 
 		local duration = (uv.hrtime() - start_time) / 1000000
 
@@ -71,15 +72,15 @@ function M.spawn(key, recipe, callback)
 		hook(recipe)
 	end
 
-	local adapter = adapters[recipe.kind]
+	local adapter = adapters[recipe.adapter or recipe.kind or "build"]
 	if adapter == nil then
-		vim.notify(string.format("Invalid adapter: %s", recipe.kind), vim.log.levels.ERROR)
+		util.error("No such adapter: " .. vim.inspect(recipe.adapter or recipe.kind))
 		return
 	end
 
 	local function on_start(task)
 		task.recipe = recipe
-		tasks[key] = task
+		tasks[recipe.name] = task
 
 		if task == nil then
 			util.error("Failed to launch : " .. vim.inspect(recipe))
@@ -90,31 +91,30 @@ function M.spawn(key, recipe, callback)
 	end
 
 	-- Check if task is already running
-	if tasks[key] then
-		local task = tasks[key]
-		if recipe.restart then
-			vim.notify("Restarting " .. key)
-			tasks[key] = task.restart(on_start, on_exit)
+	if tasks[recipe.name] then
+		local task = tasks[recipe.name]
+		if recipe.components.restart then
+			vim.notify("Restarting " .. recipe.name)
+			tasks[recipe.name] = task.restart(on_start, on_exit)
 			return
 		else
-			vim.notify("Focusing " .. key)
 			table.insert(task.callbacks, callback or function(_) end)
 			task.focus()
 			return
 		end
 	end
 
-	if config.opts.dotenv then
-		require("recipe.dotenv").load(config.opts.dotenv, function(env)
+	async.run(function()
+		if config.opts.dotenv then
+			local env = require("recipe.dotenv").load(config.opts.dotenv)
 			recipe.env = vim.tbl_extend("keep", recipe.env or {}, env)
-			vim.notify("Spawning: " .. recipe.cmd)
-			adapter.execute(key, recipe, on_start, on_exit)
-		end)
-	else
-		vim.notify("Spawning: " .. recipe.cmd)
-		adapter.execute(key, recipe, on_start, on_exit)
-	end
+		end
+
+		adapter.execute(recipe.name, recipe, on_start, on_exit)
+	end, function() end)
 end
+
+M.spawn_async = async.wrap(M.spawn, 2)
 
 local success_codes = {
 	[0] = true,

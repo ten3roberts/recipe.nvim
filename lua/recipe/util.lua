@@ -1,4 +1,5 @@
 local M = {}
+local async = require("plenary.async")
 local fn = vim.fn
 
 function M.get_compiler(cmd)
@@ -108,6 +109,34 @@ function M.read_file(path, callback)
 	end)
 end
 
+---@async
+---@param path string
+---@return string|nil, string|nil
+function M.read_file_async(path)
+	local err, fd = async.uv.fs_open(path, "r", 438)
+	assert(not err, err)
+	if err then
+		return nil, err
+	end
+
+	local err, stat = async.uv.fs_fstat(fd)
+	if err then
+		return nil, err
+	end
+
+	local err, data = async.uv.fs_read(fd, stat.size, 0)
+	if err then
+		return nil, err
+	end
+
+	local err = async.uv.fs_close(fd)
+	if err then
+		return nil, err
+	end
+
+	return data, nil
+end
+
 --- @diagnostic disable
 function M.write_file(path, data, callback)
 	uv.fs_open(path, "w", 438, function(err, fd)
@@ -138,73 +167,86 @@ end
 
 ---@param path string
 ---@param parse fun(string): any
----@return fun(cb: fun()|nil)
+---@return async fun(): string|nil
 function M.memoize_file(path, parse)
-	path = uv.fs_realpath(path)
+	path = async.uv.fs_realpath(path)
 
 	local cache = nil
-	return function(callback)
+	return function()
 		if cache then
-			callback(cache)
-			return
+			return cache
 		end
 
 		if path == nil then
-			callback(cache)
-			return
+			return nil
 		end
 
-		util.read_file(path, function(data)
-			M.watch_file(path, function()
-				cache = nil
-			end)
+		local data, err = M.read_file_async(path)
 
-			local value = parse(data)
-
-			cache = value
-			callback(value)
+		M.watch_file(path, function()
+			cache = nil
 		end)
+
+		local value = parse(data)
+
+		cache = value
+		return value
 	end
 end
 
----comment
----@return fun(path: string, parse: fun(data: string|nil), callback: fun(value: any))
+---@generic T
+---@return fun(path: string, parse: fun(data: string|nil): T): T, boolean
 function M.memoize_files()
 	local cache = {}
 
-	return function(path, parse, callback)
-		path = uv.fs_realpath(path)
+	---@async
+	return function(path, parse)
+		async.util.scheduler()
+		print("Looking for ", vim.inspect(path))
+		local path = vim.loop.fs_realpath(path)
+		-- local path = async.wrap(function(cb)
+		-- 	vim.loop.fs_realpath(path, cb)
+		-- end, 1)()
+		print("Found: ", vim.inspect(path))
 
 		local cached = cache[path]
 		if cached then
-			callback(cached)
-			return
+			print("Cached: ", vim.inspect(cached))
+			return cached, false
 		end
 
 		if path == nil then
-			local value = parse()
-
-			callback(value)
-			return
+			print("No path: ", path)
+			return parse(), true
 		end
 
 		-- Load and parse the file
 
-		M.read_file(
-			path,
-			vim.schedule_wrap(function(data)
-				M.watch_file(path, function()
-					vim.notify(path .. " changed")
-					cache[path] = nil
-				end)
+		local data, _ = M.read_file_async(path)
+		print("Loaded ", path, vim.inspect(data))
 
-				local value = parse(data)
+		M.watch_file(path, function()
+			vim.notify(path .. " changed")
+			cache[path] = nil
+		end)
 
-				cache[path] = value
-				callback(value)
-			end)
-		)
+		async.util.scheduler()
+		local value = parse(data)
+
+		cache[path] = value
+		return value, true
 	end
+end
+
+local charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
+function M.random_name()
+	local s = ""
+	for _ = 1, 16 do
+		local i = math.random(1, #charset)
+		local c = charset:sub(i, i)
+		s = s .. c
+	end
+	return s
 end
 
 return M
