@@ -202,28 +202,23 @@ function M.memoize_files()
 	---@async
 	return function(path, parse)
 		async.util.scheduler()
-		print("Looking for ", vim.inspect(path))
 		local path = vim.loop.fs_realpath(path)
 		-- local path = async.wrap(function(cb)
 		-- 	vim.loop.fs_realpath(path, cb)
 		-- end, 1)()
-		print("Found: ", vim.inspect(path))
 
 		local cached = cache[path]
 		if cached then
-			print("Cached: ", vim.inspect(cached))
 			return cached, false
 		end
 
 		if path == nil then
-			print("No path: ", path)
 			return parse(), true
 		end
 
 		-- Load and parse the file
 
 		local data, _ = M.read_file_async(path)
-		print("Loaded ", path, vim.inspect(data))
 
 		M.watch_file(path, function()
 			vim.notify(path .. " changed")

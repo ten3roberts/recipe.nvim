@@ -31,7 +31,6 @@ function M.load()
 	local path = vim.loop.fs_realpath(vim.fn.getcwd())
 	local t = {}
 
-	print("Loading recipes for", path)
 	local futures = {}
 	for i, def in pairs(config.opts.providers) do
 		local provider = providers[def.name]
@@ -58,7 +57,6 @@ function M.load()
 
 	async.util.join(futures)
 
-	print("Got recipes: ", vim.inspect(t))
 	return t
 end
 

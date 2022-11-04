@@ -79,7 +79,6 @@ end
 function M.execute(key, recipe, on_start, on_exit, win)
 	local util = require("recipe.util")
 
-	print("Executing term with key", vim.inspect(key))
 	local bufnr = api.nvim_create_buf(false, true)
 
 	---@type TermConfig

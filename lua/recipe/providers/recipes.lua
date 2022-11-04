@@ -21,7 +21,6 @@ local function parse_recipes(data)
 		local recipe = core.Recipe:new(vim.tbl_extend("force", value, { name = key, source = "recipes" }))
 		recipes[key] = recipe
 	end
-	print("Parsed recipes: ", vim.inspect(recipes))
 
 	return recipes
 end

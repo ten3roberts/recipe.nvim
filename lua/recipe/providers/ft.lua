@@ -24,7 +24,6 @@ end
 
 function provider.load(_)
 	local ft = vim.o.ft
-	print("Loading filetypes: ", vim.inspect(M.filetypes), ft)
 	return M.filetypes[ft] or {}
 end
 

@@ -59,7 +59,6 @@ end
 ---Loads all recipes asynchronously
 ---@return RecipeStore
 function M.load()
-	print("Loading recipes")
 	return providers.load()
 end
 
@@ -165,7 +164,6 @@ end
 ---@param callback fun(code: number)|nil
 function M.bake(name, callback)
 	M.load_cb(function(recipes)
-		print("Loaded recipes: ", vim.inspect(recipes))
 		local recipe = recipes[name]
 
 		if recipe == nil then
@@ -286,7 +284,6 @@ function M.pick()
 			format_item = function(recipe)
 				local pad = string.rep(" ", math.max(max_len - #(recipe.name or "")))
 
-				print("Formatting: ", vim.inspect(recipe))
 				return string.format(
 					"%s %s%s - %s",
 					lib.get_task(recipe.name) and "*" or " ",
