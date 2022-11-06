@@ -121,6 +121,7 @@ function M.execute(key, recipe, on_start, on_exit, win)
 	local oldbuf = api.nvim_get_current_buf()
 	api.nvim_set_current_buf(bufnr)
 
+	print("Opening term: ", vim.inspect(recipe))
 	local id = fn.termopen(recipe.cmd, {
 		cwd = recipe.cwd,
 		on_exit = exit,

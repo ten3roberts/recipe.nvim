@@ -107,7 +107,7 @@ function M.spawn(recipe, callback)
 	async.run(function()
 		if config.opts.dotenv then
 			local env = require("recipe.dotenv").load(config.opts.dotenv)
-			recipe.env = vim.tbl_extend("keep", recipe.env or {}, env)
+			recipe.env = vim.tbl_extend("keep", recipe.env or { __type = "table" }, env)
 		end
 
 		adapter.execute(recipe.name, recipe, on_start, on_exit)

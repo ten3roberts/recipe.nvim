@@ -11,7 +11,7 @@ function M.setup(filetypes)
 	for ft, v in pairs(filetypes) do
 		local t = M.filetypes[ft] or {}
 
-		for k, v in pairs(ft) do
+		for k, v in pairs(v) do
 			v = Recipe:new(v)
 			v.name = k
 			v.source = "ft"
@@ -19,6 +19,7 @@ function M.setup(filetypes)
 		end
 		M.filetypes[ft] = t
 	end
+
 	require("recipe").register("ft", provider)
 end
 
