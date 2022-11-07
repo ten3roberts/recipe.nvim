@@ -251,20 +251,24 @@ local function order(recipes)
 	local t = {}
 
 	for _, v in pairs(recipes) do
-		table.insert(t, v)
+		t[v.name] = v
 	end
 
 	local tasks = lib.get_tasks()
 	for _, v in pairs(tasks) do
-		table.insert(t, v.recipe)
+		t[v.recipe.name] = v.recipe
 	end
 
 	local now = vim.loop.hrtime() / 1000000000
-	table.sort(t, function(a, b)
+	local all = {}
+	for _, v in pairs(t) do
+		table.insert(all, v)
+	end
+	table.sort(all, function(a, b)
 		return recipe_score(a, now) > recipe_score(b, now)
 	end)
 
-	return t
+	return all
 end
 
 function M.pick()
