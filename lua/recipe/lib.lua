@@ -47,8 +47,9 @@ local tasks = {}
 ---@param callback fun(code: number)|nil
 function M.spawn(recipe, callback)
 	local adapters = config.opts.adapters
-	recipe.cmd = recipe.components.plain and recipe.cmd
-		or recipe.cmd:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)
+	if not recipe.components.plain and type(recipe.cmd) == "string" then
+		recipe.cmd = recipe.cmd:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)
+	end
 
 	local start_time = uv.hrtime()
 
@@ -62,7 +63,7 @@ function M.spawn(recipe, callback)
 
 		local state = code == 0 and "Success" or string.format("Failure %d", code)
 
-		vim.notify(string.format("%s: %q %s", state, recipe.cmd:sub(1, 64), M.format_time(duration)), level)
+		vim.notify(string.format("%s: %q %s", state, recipe:fmt_cmd():sub(1, 64), M.format_time(duration)), level)
 		for _, cb in ipairs(task.callbacks) do
 			cb(code)
 		end

@@ -2,6 +2,7 @@
 local util = require("recipe.util")
 
 ---@class Recipe
+---@field cmd string|string[]
 ---@field source string
 ---@field name string
 ---@field adapter string
@@ -15,7 +16,7 @@ Recipe.__index = Recipe
 ---@return Recipe
 function Recipe:new(o)
 	o.components = o.components or {}
-	o.name = o.name or o.cmd or util.random_name()
+	o.name = o.name or (type(o.cmd) == "string" and o.cmd or table.concat(o.cmd, " ")) or util.random_name()
 	o.cwd = o.cwd or vim.fn.getcwd()
 	o.priority = o.priority or 1000
 	return setmetatable(o, self)
@@ -27,6 +28,19 @@ end
 function Recipe:add_component(type, value)
 	self.components[type] = value
 	return self
+end
+
+function Recipe:fmt_cmd()
+	if type(self.cmd) == "table" then
+		return table.concat(self.cmd, " ")
+	else
+		return self.cmd
+	end
+end
+function Recipe:format(padding)
+	local cmd = self:fmt_cmd()
+
+	return string.format("%s%s - %s %s", self.name, padding, self.source, cmd)
 end
 
 function Recipe:has_component(type)

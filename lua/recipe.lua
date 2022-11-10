@@ -288,13 +288,7 @@ function M.pick()
 			format_item = function(recipe)
 				local pad = string.rep(" ", math.max(max_len - #(recipe.name or "")))
 
-				return string.format(
-					"%s %s%s - %s",
-					lib.get_task(recipe.name) and "*" or " ",
-					recipe.name:sub(1, 120),
-					pad,
-					recipe.cmd or recipe
-				)
+				return (lib.get_task(recipe.name) and "*" or " ") .. " " .. recipe:format(pad)
 			end,
 		}
 

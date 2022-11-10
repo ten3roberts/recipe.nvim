@@ -75,6 +75,7 @@ M.opts = {
 
 	---@type ProviderDef[]
 	providers = {
+		{ name = "lsp" },
 		{ name = "recipes" },
 		{ name = "make" },
 		{ name = "ft" },
@@ -101,6 +102,7 @@ function M.setup(config)
 
 	--- Setup the default providers
 	require("recipe.providers.recipes").setup()
+	require("recipe.providers.lsp").setup()
 	require("recipe.providers.make").setup()
 	require("recipe.providers.custom").setup(M.opts.custom_recipes.global)
 	require("recipe.providers.ft").setup(M.opts.custom_recipes.filetypes)

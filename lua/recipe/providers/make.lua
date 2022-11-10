@@ -43,6 +43,7 @@ function provider.load(path)
 end
 
 local M = {}
-function M.setup() end
-require("recipe").register("make", provider)
+function M.setup()
+	require("recipe").register("make", provider)
+end
 return M
