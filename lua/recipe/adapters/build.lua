@@ -14,9 +14,9 @@ local quickfix = require("recipe.quickfix")
 
 ---@param _ string
 ---@param recipe Recipe
----@param on_start fun(task: Task|nil)
 ---@param on_exit fun(code: number)
-function M.execute(_, recipe, on_start, on_exit)
+---@return Task|nil
+function M.execute(_, recipe, on_exit)
 	local data = { "" }
 	local info = {
 		restarted = false,
@@ -87,10 +87,11 @@ function M.execute(_, recipe, on_start, on_exit)
 
 	if id <= 0 then
 		util.error("Failed to start job")
-		return on_start(nil)
+		return
 	end
 
-	on_start({
+	return {
+		output = data,
 		stop = function()
 			fn.jobstop(id)
 			fn.jobwait({ id }, 1000)
@@ -100,11 +101,11 @@ function M.execute(_, recipe, on_start, on_exit)
 			fn.jobstop(id)
 			fn.jobwait({ id }, 1000)
 
-			M.execute(_, recipe, start, cb)
+			M.execute(_, recipe, start)
 		end,
 		focus = function() end,
 		recipe = recipe,
-	})
+	}
 end
 
 return M

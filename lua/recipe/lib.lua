@@ -73,13 +73,37 @@ function M.spawn(recipe, callback)
 		hook(recipe)
 	end
 
+	---@diagnostic disable-next-line: undefined-field
 	local adapter = adapters[recipe.adapter or recipe.kind or "build"]
 	if adapter == nil then
+		---@diagnostic disable-next-line: undefined-field
 		util.error("No such adapter: " .. vim.inspect(recipe.adapter or recipe.kind))
 		return
 	end
 
-	local function on_start(task)
+	async.run(function()
+		-- Check if task is already running
+		local task = nil
+		if config.opts.dotenv then
+			local env = require("recipe.dotenv").load(config.opts.dotenv)
+			recipe.env = vim.tbl_extend("keep", recipe.env or { __type = "table" }, env)
+		end
+
+		if tasks[recipe.name] then
+			local task = tasks[recipe.name]
+			if recipe.components.restart then
+				vim.notify("Restarting " .. recipe.name)
+				task = task.restart(on_exit)
+			else
+				table.insert(task.callbacks, callback or function(_) end)
+				task.focus()
+				return
+			end
+		else
+			-- Run the task as normal
+			task = adapter.execute(recipe.name, recipe, on_exit)
+		end
+
 		task.recipe = recipe
 		tasks[recipe.name] = task
 
@@ -89,29 +113,6 @@ function M.spawn(recipe, callback)
 		end
 
 		task.callbacks = { callback or function(_) end }
-	end
-
-	-- Check if task is already running
-	if tasks[recipe.name] then
-		local task = tasks[recipe.name]
-		if recipe.components.restart then
-			vim.notify("Restarting " .. recipe.name)
-			tasks[recipe.name] = task.restart(on_start, on_exit)
-			return
-		else
-			table.insert(task.callbacks, callback or function(_) end)
-			task.focus()
-			return
-		end
-	end
-
-	async.run(function()
-		if config.opts.dotenv then
-			local env = require("recipe.dotenv").load(config.opts.dotenv)
-			recipe.env = vim.tbl_extend("keep", recipe.env or { __type = "table" }, env)
-		end
-
-		adapter.execute(recipe.name, recipe, on_start, on_exit)
 	end, function() end)
 end
 

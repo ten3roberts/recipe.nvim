@@ -6,9 +6,10 @@ local util = require("recipe.util")
 ---@class Task
 ---@field stop fun()
 ---@field focus fun()
----@field restart fun(on_start: fun(task: Task|nil), on_exit: fun(code: number): Task|nil): Task
+---@field restart fun(on_exit: fun(code: number): Task|nil): Task
 ---@field callbacks fun(code: number)[] added by lib
 ---@field recipe Recipe
+---@field output string[]
 
 ---@class Config
 ---@field custom_recipes table<string, Recipe>

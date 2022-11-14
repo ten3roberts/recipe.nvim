@@ -74,9 +74,9 @@ end
 
 ---@param key string
 ---@param recipe Recipe
----@param on_start fun(task: Task|nil)
 ---@param on_exit fun(code: number)
-function M.execute(key, recipe, on_start, on_exit, win)
+---@return Task
+function M.execute(key, recipe, on_exit, win)
 	local util = require("recipe.util")
 
 	local bufnr = api.nvim_create_buf(false, true)
@@ -137,7 +137,7 @@ function M.execute(key, recipe, on_start, on_exit, win)
 
 	info.running = true
 
-	on_start({
+	return {
 		stop = function()
 			fn.jobstop(id)
 			fn.jobwait({ id }, 1000)
@@ -162,7 +162,7 @@ function M.execute(key, recipe, on_start, on_exit, win)
 			end
 		end,
 		recipe = recipe,
-	})
+	}
 end
 
 function M.on_exit() end

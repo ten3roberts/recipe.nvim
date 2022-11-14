@@ -239,10 +239,10 @@ local recipe_frecency = {}
 
 ---@param recipe Recipe
 local function recipe_score(recipe, now)
-	local f = recipe_frecency[recipe.name] or { uses = 0, last_use = 0 }
+	local f = recipe_frecency[recipe.name] or { uses = 0, last_use = 0.0 }
 	local dur = now - f.last_use
 
-	return (f.uses + 1) / dur * recipe.priority * (lib.get_task(recipe.name) and 2 or 1)
+	return (f.uses + 1) / (dur + 1) * recipe.priority * (lib.get_task(recipe.name) and 200 or 100)
 end
 
 ---@param recipes table<string, Recipe>

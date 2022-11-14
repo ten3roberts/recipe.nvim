@@ -41,15 +41,13 @@ end
 
 ---@param _ string
 ---@param recipe Recipe
----@param on_start fun(task: Task|nil)
 ---@param on_exit fun(code: number)
-function M.execute(_, recipe, on_start, on_exit)
+---@return Task|nil
+function M.execute(_, recipe, on_exit)
 	M.setup()
 
-	local opts = recipe.opts
-
 	local conf = {
-		type = opts.adapter or vim.o.ft,
+		type = recipe.components.adapter or vim.o.ft,
 		request = "launch",
 		name = "Recipe " .. recipe.cmd,
 		program = recipe.cmd,
@@ -59,13 +57,15 @@ function M.execute(_, recipe, on_start, on_exit)
 
 	dap.run(conf, { env = recipe.env, cwd = recipe.cwd })
 
-	on_start({
+	vim.defer_fn(function()
+		on_exit(0)
+	end, 100)
+
+	return {
 		focus = function() end,
 		stop = function() end,
 		execute = function() end,
-	})
-
-	on_exit(0)
+	}
 end
 
 return M
