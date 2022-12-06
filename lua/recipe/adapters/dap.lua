@@ -33,7 +33,7 @@ function M.launch(_, recipe, ok, opts)
 		request = "launch",
 		cwd = recipe.cwd,
 		name = "Recipe " .. recipe.cmd,
-		justMyCode = false,
+		-- justMyCode = false,
 	}, opts)
 
 	dap.run(conf)

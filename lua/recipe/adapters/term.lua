@@ -75,7 +75,7 @@ end
 ---@param key string
 ---@param recipe Recipe
 ---@param on_exit fun(code: number)
----@return Task
+---@return Task|nil
 function M.execute(key, recipe, on_exit, win)
 	local util = require("recipe.util")
 
@@ -108,20 +108,21 @@ function M.execute(key, recipe, on_exit, win)
 
 		info.code = code
 
-		if code == 0 and config.auto_close and fn.bufloaded(bufnr) == 1 then
-			win = find_win(bufnr)
-			if win and api.nvim_win_is_valid(win) then
-				api.nvim_win_close(win, {})
+		vim.defer_fn(function()
+			if code == 0 and config.auto_close and fn.bufloaded(bufnr) == 1 then
+				win = find_win(bufnr)
+				if win and api.nvim_win_is_valid(win) then
+					api.nvim_win_close(win, {})
+				end
 			end
-		end
 
-		on_exit(code)
+			on_exit(code)
+		end, 1000)
 	end
 
 	local oldbuf = api.nvim_get_current_buf()
 	api.nvim_set_current_buf(bufnr)
 
-	print("Opening term: ", vim.inspect(recipe))
 	local id = fn.termopen(recipe.cmd, {
 		cwd = recipe.cwd,
 		on_exit = exit,
@@ -132,17 +133,17 @@ function M.execute(key, recipe, on_exit, win)
 
 	if id <= 0 then
 		util.error("Failed to start job")
-		return on_start(nil)
+		return nil
 	end
 
 	info.running = true
 
 	return {
 		stop = function()
-			fn.jobstop(id)
-			fn.jobwait({ id }, 1000)
+			-- fn.jobstop(id)
+			-- fn.jobwait({ id }, 1000)
 		end,
-		restart = function(start, cb)
+		restart = function(cb)
 			info.restarted = true
 
 			win = fn.bufwinid(bufnr)
@@ -150,7 +151,7 @@ function M.execute(key, recipe, on_exit, win)
 				win = nil
 			end
 
-			return M.execute(key, recipe, start, cb, win)
+			return M.execute(key, recipe, cb, win)
 		end,
 		focus = function()
 			win = fn.bufwinid(bufnr)

@@ -276,6 +276,7 @@ function M.pick()
 		local items = order(recipes)
 
 		if #items == 0 then
+			vim.notify("No recipes")
 			return
 		end
 

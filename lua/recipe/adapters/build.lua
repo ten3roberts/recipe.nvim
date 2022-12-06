@@ -70,11 +70,6 @@ function M.execute(_, recipe, on_exit)
 			data[#data + 1] = remove_escape_codes(lines[i])
 		end
 		local cur = vim.loop.hrtime()
-
-		if cur - last_report > 1e9 then
-			set_qf(false)
-			last_report = cur
-		end
 	end
 
 	local id = fn.jobstart(recipe.cmd, {
