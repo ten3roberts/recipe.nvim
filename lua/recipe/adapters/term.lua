@@ -2,6 +2,8 @@ local api = vim.api
 local fn = vim.fn
 local M = {}
 
+local components = require("recipe.components")
+
 ---@class term
 ---@field bufnr number
 ---@field win number
@@ -101,7 +103,14 @@ function M.execute(key, recipe, on_exit, win)
 
 	terminals[key] = bufnr
 
+	local task = { recipe = recipe, data = {} }
+	local on_stdout, stdout_cleanup = util.curry_output("on_stdout", task)
+	local on_stderr, stderr_cleanup = util.curry_output("on_stderr", task)
+
 	local function exit(_, code)
+		stdout_cleanup()
+		stderr_cleanup()
+
 		if info.restarted then
 			return
 		end
@@ -109,6 +118,7 @@ function M.execute(key, recipe, on_exit, win)
 		info.code = code
 
 		vim.defer_fn(function()
+			components.execute(recipe.components, "on_exit", task)
 			if code == 0 and config.auto_close and fn.bufloaded(bufnr) == 1 then
 				win = find_win(bufnr)
 				if win and api.nvim_win_is_valid(win) then
@@ -127,6 +137,8 @@ function M.execute(key, recipe, on_exit, win)
 		cwd = recipe.cwd,
 		on_exit = exit,
 		env = recipe.env,
+		on_stdout = on_stdout,
+		on_stderr = on_stderr,
 	})
 
 	api.nvim_set_current_buf(oldbuf)
@@ -136,34 +148,37 @@ function M.execute(key, recipe, on_exit, win)
 		return nil
 	end
 
+	components.execute(recipe.components, "on_start", task)
+
 	info.running = true
 
-	return {
-		stop = function()
-			-- fn.jobstop(id)
-			-- fn.jobwait({ id }, 1000)
-		end,
-		restart = function(cb)
-			info.restarted = true
+	task.stop = function()
+		fn.jobstop(id)
+		-- fn.jobwait({ id }, 1000)
+	end
 
-			win = fn.bufwinid(bufnr)
-			if win == -1 then
-				win = nil
-			end
+	task.restart = function(cb)
+		info.restarted = true
 
-			return M.execute(key, recipe, cb, win)
-		end,
-		focus = function()
-			win = fn.bufwinid(bufnr)
-			if win ~= -1 then
-				api.nvim_set_current_win(win)
-			elseif fn.bufloaded(bufnr) == 1 then
-				win = M.open_win(config, bufnr)
-				api.nvim_win_set_buf(win, bufnr)
-			end
-		end,
-		recipe = recipe,
-	}
+		win = fn.bufwinid(bufnr)
+		if win == -1 then
+			win = nil
+		end
+
+		return M.execute(key, recipe, cb, win)
+	end
+
+	task.focus = function()
+		win = fn.bufwinid(bufnr)
+		if win ~= -1 then
+			api.nvim_set_current_win(win)
+		elseif fn.bufloaded(bufnr) == 1 then
+			win = M.open_win(config, bufnr)
+			api.nvim_win_set_buf(win, bufnr)
+		end
+	end
+
+	return task
 end
 
 function M.on_exit() end

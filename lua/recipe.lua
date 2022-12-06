@@ -1,5 +1,4 @@
 local api = vim.api
-local fn = vim.fn
 
 local util = require("recipe.util")
 local lib = require("recipe.lib")
@@ -21,6 +20,8 @@ function M.setup(opts)
 		o.group = group
 		api.nvim_create_autocmd(event, o)
 	end
+
+	require("recipe.components.qf").setup()
 
 	au({ "BufWritePre" }, {
 		pattern = config.opts.recipes_file,

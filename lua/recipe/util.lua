@@ -244,4 +244,35 @@ function M.random_name()
 	return s
 end
 
+function M.remove_escape_codes(s)
+	-- from: https://stackoverflow.com/questions/48948630/lua-ansi-escapes-pattern
+	local ansi_escape_sequence_pattern = "[\27\155][][()#;?%d]*[A-PRZcf-ntqry=><~]"
+
+	return s:gsub(ansi_escape_sequence_pattern, ""):gsub("\r", "")
+end
+
+local remove_escape_codes = M.remove_escape_codes
+
+function M.curry_output(method, task)
+	local components = require("recipe.components")
+	local prev_line = ""
+	local on_output = components.collect_method(task.recipe.components, method)
+
+	return
+		function(_, lines)
+			-- Complete previous line
+			prev_line = prev_line .. lines[1]
+
+			for i = 2, #lines do
+				on_output(task, remove_escape_codes(prev_line))
+				prev_line = ""
+				-- Before pushing a new line, invoke the stdout for components
+				prev_line = lines[i]
+			end
+		end,
+		function()
+			on_output(task, prev_line)
+		end
+end
+
 return M

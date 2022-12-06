@@ -1,6 +1,4 @@
 local M = {}
-local core = require("recipe.core")
-local Recipe = core.Recipe
 local util = require("recipe.util")
 
 ---@class Task
@@ -9,6 +7,7 @@ local util = require("recipe.util")
 ---@field restart fun(on_exit: fun(code: number): Task|nil): Task
 ---@field callbacks fun(code: number)[] added by lib
 ---@field recipe Recipe
+---@field data table<string, any>
 ---@field output string[]
 
 ---@class Config
@@ -81,6 +80,11 @@ M.opts = {
 		{ name = "make" },
 		{ name = "ft" },
 		{ name = "custom" },
+	},
+
+	--- The components which are attached to all recipes
+	default_components = {
+		qf = {},
 	},
 
 	adapters = {

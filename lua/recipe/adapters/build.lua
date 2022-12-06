@@ -1,16 +1,8 @@
 local uv = vim.loop
 local M = {}
 local util = require("recipe.util")
+local components = require("recipe.components")
 local fn = vim.fn
-
-local function remove_escape_codes(s)
-	-- from: https://stackoverflow.com/questions/48948630/lua-ansi-escapes-pattern
-	local ansi_escape_sequence_pattern = "[\27\155][][()#;?%d]*[A-PRZcf-ntqry=><~]"
-
-	return s:gsub(ansi_escape_sequence_pattern, ""):gsub("\r", "")
-end
-
-local quickfix = require("recipe.quickfix")
 
 ---@param _ string
 ---@param recipe Recipe
@@ -22,61 +14,34 @@ function M.execute(_, recipe, on_exit)
 		restarted = false,
 	}
 
-	local lock = nil
-
-	local function set_qf(open)
-		lock = quickfix.set(lock, recipe, data, open)
-	end
+	local task = { recipe = recipe, data = {} }
 
 	local timer = uv.new_timer()
-	local old_len = #data
-	timer:start(
-		200,
-		1000,
-		vim.schedule_wrap(function()
-			if #data ~= old_len then
-				old_len = #data
-				set_qf(nil)
-			end
-		end)
-	)
+
+	local on_stdout, stdout_cleanup = util.curry_output("on_stdout", task)
+	local on_stderr, stderr_cleanup = util.curry_output("on_stderr", task)
 
 	local function exit(_, code)
 		timer:stop()
 		timer:close()
 
+		stdout_cleanup()
+		stderr_cleanup()
+
 		if info.restarted then
 			return
 		end
 
-		set_qf(code ~= 0)
-
-		quickfix.release_lock(lock)
+		components.execute(recipe.components, "on_exit", task)
 
 		on_exit(code)
 	end
 
-	local last_report = vim.loop.hrtime()
-
-	local function on_output(_, lines)
-		if #lines == 0 or #data > 5000 then
-			return
-		end
-
-		-- Complete previous line
-		data[#data] = data[#data] .. remove_escape_codes(lines[1])
-
-		for i = 2, #lines do
-			data[#data + 1] = remove_escape_codes(lines[i])
-		end
-		local cur = vim.loop.hrtime()
-	end
-
 	local id = fn.jobstart(recipe.cmd, {
 		cwd = recipe.cwd,
-		on_stdout = on_output,
+		on_stdout = on_stdout,
 		on_exit = exit,
-		on_stderr = on_output,
+		on_stderr = on_stderr,
 		env = recipe.env,
 	})
 
@@ -85,22 +50,23 @@ function M.execute(_, recipe, on_exit)
 		return
 	end
 
-	return {
-		output = data,
-		stop = function()
-			fn.jobstop(id)
-			fn.jobwait({ id }, 1000)
-		end,
-		restart = function(start, cb)
-			info.restarted = true
-			fn.jobstop(id)
-			fn.jobwait({ id }, 1000)
+	components.execute(recipe.components, "on_start", task)
+	task.stop = function()
+		fn.jobstop(id)
+		fn.jobwait({ id }, 1000)
+	end
 
-			M.execute(_, recipe, start)
-		end,
-		focus = function() end,
-		recipe = recipe,
-	}
+	task.restart = function(start, _)
+		info.restarted = true
+		fn.jobstop(id)
+		fn.jobwait({ id }, 1000)
+
+		M.execute(_, recipe, start)
+	end
+
+	task.focus = function() end
+
+	return task
 end
 
 return M

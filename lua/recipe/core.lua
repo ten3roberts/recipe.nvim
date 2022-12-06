@@ -13,11 +13,17 @@ local util = require("recipe.util")
 local Recipe = {}
 
 Recipe.__index = Recipe
+local config = require("recipe.config")
 
 --- Creates a new recipe
 ---@return Recipe
 function Recipe:new(o)
 	o.components = o.components or {}
+	for k, v in pairs(config.opts.default_components) do
+		if o.components[k] == nil then
+			o.components[k] = v
+		end
+	end
 	o.name = o.name or (type(o.cmd) == "string" and o.cmd or table.concat(o.cmd, " ")) or util.random_name()
 	o.cwd = o.cwd or vim.fn.getcwd()
 	o.priority = o.priority or 1000
