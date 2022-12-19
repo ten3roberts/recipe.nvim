@@ -58,10 +58,10 @@ function M.set(lock, recipe, data, open)
 	if lock then
 		lock.expiration = cur_time + 10
 
-		local compiler = util.get_compiler(recipe.cmd)
+		local compiler = util.get_compiler(recipe:fmt_cmd())
 		local old_cwd = vim.fn.getcwd()
 		api.nvim_set_current_dir(recipe.cwd)
-		util.qf(recipe.cmd:sub(1, 80), compiler, data, open)
+		util.qf(recipe:fmt_cmd(), compiler, data, open)
 		api.nvim_set_current_dir(old_cwd)
 	end
 

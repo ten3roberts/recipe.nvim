@@ -51,6 +51,7 @@ function M.execute(_, recipe, on_exit)
 		request = "launch",
 		name = "Recipe " .. recipe.cmd,
 		program = recipe.cmd,
+		args = recipe.args,
 		justMyCode = true,
 		env = recipe.env,
 	}

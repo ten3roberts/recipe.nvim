@@ -22,6 +22,7 @@ function M.setup(opts)
 	end
 
 	require("recipe.components.qf").setup()
+	require("recipe.components.depends_on").setup()
 
 	au({ "BufWritePre" }, {
 		pattern = config.opts.recipes_file,

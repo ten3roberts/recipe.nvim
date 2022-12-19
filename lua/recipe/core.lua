@@ -38,6 +38,7 @@ function Recipe:add_component(type, value)
 	return self
 end
 
+---@return string
 function Recipe:fmt_cmd()
 	if type(self.cmd) == "table" then
 		return table.concat(self.cmd, " ")

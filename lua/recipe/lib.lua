@@ -59,11 +59,13 @@ function M.spawn(recipe, callback)
 
 		local duration = (uv.hrtime() - start_time) / 1000000
 
-		local level = code == 0 and vim.log.levels.INFO or vim.log.levels.ERROR
+		local level = (code == 0 and vim.log.levels.INFO) or vim.log.levels.ERROR
 
 		local state = code == 0 and "Success" or string.format("Failure %d", code)
 
-		vim.notify(string.format("%s: %q %s", state, recipe:fmt_cmd():sub(1, 64), M.format_time(duration)), level)
+		local msg = string.format("%s: %q %s", state, recipe:fmt_cmd():sub(1, 64), M.format_time(duration))
+		vim.notify(msg, level)
+
 		for _, cb in ipairs(task.callbacks) do
 			cb(code)
 		end

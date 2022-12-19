@@ -1,16 +1,14 @@
+local util = require("recipe.util")
 local M = {
 	opts = {
 		max_lines = 10000,
+		throttle = 1000,
 	},
 }
 
 local lock = nil
 
 local quickfix = require("recipe.quickfix")
-
-local function set_qf(task, open)
-	lock = quickfix.set(lock, task.recipe, data, open)
-end
 
 local function on_output(task, line)
 	local qf = task.data.qf
@@ -19,13 +17,36 @@ local function on_output(task, line)
 		return
 	end
 
+	line = util.remove_escape_codes(line)
 	table.insert(qf.lines, line)
 
 	local cur = vim.loop.hrtime()
-
-	if cur - qf.last_report > 5e8 then
+	local function write_qf()
 		qf.lock = quickfix.set(qf.lock, task.recipe, qf.lines)
-		qf.last_report = cur
+		qf.last_report = vim.loop.hrtime()
+	end
+
+	if qf.in_flight then
+		return
+	end
+
+	if (cur - qf.last_report) / 1e6 > M.opts.throttle then
+		write_qf()
+	else
+		local timer = vim.loop.new_timer()
+		timer:start(
+			M.opts.throttle,
+			0,
+			vim.schedule_wrap(function()
+				timer:stop()
+				timer:close()
+				qf.in_flight = nil
+
+				write_qf()
+			end)
+		)
+
+		qf.in_flight = timer
 	end
 end
 
@@ -43,6 +64,12 @@ end
 ---@param task Task
 function qf.on_exit(task)
 	local qf = task.data.qf
+	if qf.in_flight then
+		qf.in_flight:stop()
+		qf.in_flight:close()
+		qf.in_flight = nil
+	end
+
 	qf.lock = quickfix.set(qf.lock, task.recipe, qf.lines)
 	quickfix.release_lock(qf.lock)
 end

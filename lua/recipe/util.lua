@@ -264,7 +264,7 @@ function M.curry_output(method, task)
 			prev_line = prev_line .. lines[1]
 
 			for i = 2, #lines do
-				on_output(task, remove_escape_codes(prev_line))
+				on_output(task, prev_line)
 				prev_line = ""
 				-- Before pushing a new line, invoke the stdout for components
 				prev_line = lines[i]

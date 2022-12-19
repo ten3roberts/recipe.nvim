@@ -12,6 +12,10 @@ function M.register(name, component)
 	components[name] = component
 end
 
+function M.alias(name, alias)
+	components[alias] = components[name]
+end
+
 function M.get(name)
 	local v = components[name]
 	if not v then
