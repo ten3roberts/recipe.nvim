@@ -73,7 +73,8 @@ function M.spawn(recipe, interactive)
 		recipe.cmd = recipe.cmd:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)
 	end
 
-	local key = recipe:fmt_cmd()
+	local key = recipe.name
+	assert(type(key) == "string")
 	local start_time = uv.hrtime()
 
 	local function on_exit(_, code)

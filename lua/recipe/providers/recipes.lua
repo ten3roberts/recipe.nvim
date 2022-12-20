@@ -53,7 +53,7 @@ local function parse_recipes(data, path)
 						return nil, "Failed to parse dependency:\n" .. err
 					end
 
-					dep = err
+					dep = r
 				end
 
 				if not dep then
@@ -91,6 +91,7 @@ local function parse_recipes(data, path)
 				recipes[key] = recipe
 			else
 				util.error("Failed to parse recipe: " .. key .. "\n" .. err)
+				recipes[key] = nil
 			end
 		end
 	end

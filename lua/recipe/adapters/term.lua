@@ -1,3 +1,4 @@
+local async = require("plenary.async")
 local api = vim.api
 local fn = vim.fn
 local M = {}
@@ -16,6 +17,7 @@ function M.open_win(config, bufnr)
 	local cols = vim.o.columns
 	local cmdheight = vim.o.cmdheight
 
+	print("Config: ", vim.inspect(config))
 	local height = math.ceil(config.height < 1 and config.height * lines or config.height)
 	local width = math.ceil(config.width < 1 and config.width * cols or config.width)
 
@@ -109,31 +111,33 @@ function M.execute(recipe)
 	---@type TermConfig
 	local term_config = vim.tbl_deep_extend("force", require("recipe.config").opts.term, {})
 
-	local key = recipe:fmt_cmd()
+	local key = recipe.name
 
 	-- Create a blank buffer for the terminal
 	local bufnr = api.nvim_create_buf(false, true)
 
 	local task = { recipe = recipe, data = {}, bufnr = bufnr, callbacks = {} }
 
-	local async = require("plenary.async")
+	-- Attempt to reuse window or open a new one
+	local win = acquire_win(key, term_config, bufnr)
+
+	-- Do this afterwards to be able to look up the old buffer
+	terminals[key] = bufnr
+	assert(api.nvim_win_get_buf(win) == bufnr, "Returned window does not display the terminal buffer")
+	local env = vim.deepcopy(recipe.env) or {}
+	env.__type = "table"
+
 	async.run(function()
 		if config.opts.dotenv then
-			local env = require("recipe.dotenv").load(config.opts.dotenv)
-			recipe.env = vim.tbl_extend("keep", recipe.env or { __type = "table" }, env)
+			local denv = require("recipe.dotenv").load(config.opts.dotenv)
+			env = vim.tbl_extend("keep", env, denv)
 		end
 
 		async.util.scheduler()
 
-		-- Attempt to reuse window or open a new one
-		local win = acquire_win(key, term_config, bufnr)
-
-		-- Do this afterwards to be able to look up the old buffer
-		terminals[key] = bufnr
-		assert(api.nvim_win_get_buf(win) == bufnr, "Returned window does not display the terminal buffer")
-
 		local on_stdout, stdout_cleanup = util.curry_output("on_output", task)
 		local on_stderr, stderr_cleanup = util.curry_output("on_output", task)
+
 		local function on_exit(_, code)
 			stdout_cleanup()
 			stderr_cleanup()
@@ -154,7 +158,7 @@ function M.execute(recipe)
 		local jobnr = fn.termopen(recipe.cmd, {
 			cwd = recipe.cwd,
 			on_exit = vim.schedule_wrap(on_exit),
-			env = recipe.env,
+			env = env,
 			on_stdout = on_stdout,
 			on_stderr = on_stderr,
 		})
@@ -165,6 +169,7 @@ function M.execute(recipe)
 		end
 
 		components.execute(recipe.components, "on_start", task)
+
 		-- Update the task
 		task.running = true
 		task.stop = function()
@@ -172,7 +177,7 @@ function M.execute(recipe)
 			fn.jobwait({ jobnr }, 1000)
 		end
 
-		task.restart = function(cb)
+		task.restart = function()
 			fn.jobstop(jobnr)
 			fn.jobwait({ jobnr }, 1000)
 
@@ -184,7 +189,7 @@ function M.execute(recipe)
 			if win ~= -1 then
 				api.nvim_set_current_win(win)
 			elseif fn.bufloaded(bufnr) == 1 then
-				win = M.open_win(config, bufnr)
+				win = M.open_win(term_config, bufnr)
 				api.nvim_win_set_buf(win, bufnr)
 			end
 		end

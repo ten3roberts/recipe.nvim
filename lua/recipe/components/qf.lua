@@ -20,7 +20,7 @@ function qf.on_output(task)
 
 	local cur = vim.loop.hrtime()
 	local function write_qf()
-		qf.lock = quickfix.set(qf.lock, task.recipe, lines)
+		qf.lock = quickfix.set(qf.lock, task.recipe, lines, false)
 		qf.last_report = vim.loop.hrtime()
 	end
 

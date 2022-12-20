@@ -58,6 +58,7 @@ end
 
 function Recipe:format(padding)
 	local cmd = self:fmt_cmd()
+	local padding = string.rep(" ", math.max(padding - #self.name, 0))
 
 	return string.format("%s%s - %s %s", self.name, padding, self.source, cmd)
 end
