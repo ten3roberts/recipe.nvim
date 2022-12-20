@@ -1,13 +1,14 @@
 local util = require("recipe.util")
 local core = require("recipe.core")
----@class RecipesProvider : Provider
+
 ---Provides recipes from the `recipes.json` file
+---@class RecipesProvider : Provider
 local provider = {
 	memo = util.memoize_files(),
 }
 
 ---@return RecipeStore
-local function parse_recipes(data)
+local function parse_recipes(data, path)
 	data = data or "{}"
 	local ok, json = pcall(vim.json.decode, data)
 	if not ok then
@@ -16,10 +17,82 @@ local function parse_recipes(data)
 	end
 
 	local recipes = {}
+	local in_progress = {}
+
+	local function parse_recipe(key, value)
+		local recipe = {
+			name = key,
+			source = vim.fn.fnamemodify(path, ":p:."),
+			depends_on = {},
+		}
+
+		if not value.cmd then
+			return nil, "Missing field `cmd`"
+		end
+
+		recipe.cmd = value.cmd
+
+		-- Resolve dependencies
+		for i, v in ipairs(value.depends_on or value.dependencies or {}) do
+			if type(v) == "string" then
+				local dep = recipes[v]
+
+				if dep == in_progress then
+					return nil, "Cyclic dependency"
+				end
+
+				-- Try parse it
+				if not dep then
+					local value = json[v]
+					print("Loading ", v, vim.inspect(value), "recursively")
+					local r, err = parse_recipe(v, value)
+
+					if r then
+						recipes[v] = r
+					else
+						return nil, "Failed to parse dependency:\n" .. err
+					end
+
+					dep = err
+				end
+
+				if not dep then
+					print("Recipes: ", vim.inspect(recipes))
+					return nil, "Unresolved dependency: " .. v
+				end
+
+				table.insert(recipe.depends_on, dep)
+			else
+				if type(v) == "table" then
+					local dep, err = parse_recipe(key .. "." .. i, v)
+					if not dep then
+						return nil, "Failed to parse dependency:\n" .. err
+					end
+
+					table.insert(recipe.depends_on, dep)
+				end
+			end
+		end
+
+		-- Don't blindly merge
+		recipe.cwd = value.cwd
+		recipe.env = value.env
+		recipe.components = value.components
+		recipe.priority = value.priority
+
+		return core.Recipe:new(recipe)
+	end
 
 	for key, value in pairs(json) do
-		local recipe = core.Recipe:new(vim.tbl_extend("force", value, { name = key, source = "recipes" }))
-		recipes[key] = recipe
+		if not recipes[key] then
+			recipes[key] = in_progress
+			local recipe, err = parse_recipe(key, value)
+			if recipe then
+				recipes[key] = recipe
+			else
+				util.error("Failed to parse recipe: " .. key .. "\n" .. err)
+			end
+		end
 	end
 
 	return recipes
@@ -36,5 +109,5 @@ end
 
 local M = {}
 function M.setup() end
-require("recipe").register("recipes", provider)
+require("recipe.providers").register("recipes", provider)
 return M

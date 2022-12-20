@@ -1,7 +1,9 @@
 local M = {}
 local util = require("recipe.util")
 
+---Represents a running task
 ---@class Task
+---@field bufnr number The buffer containing the process output
 ---@field stop fun()
 ---@field focus fun()
 ---@field restart fun(on_exit: fun(code: number): Task|nil): Task
@@ -9,6 +11,7 @@ local util = require("recipe.util")
 ---@field recipe Recipe
 ---@field data table<string, any>
 ---@field output string[]
+---@field callbacks fun(task: Task, code: number)[]
 
 ---@class Config
 ---@field custom_recipes table<string, Recipe>
@@ -85,12 +88,6 @@ M.opts = {
 	--- The components which are attached to all recipes
 	default_components = {
 		qf = {},
-	},
-
-	adapters = {
-		term = require("recipe.adapters.term"),
-		build = require("recipe.adapters.build"),
-		dap = require("recipe.adapters.dap"),
 	},
 
 	debug_adapters = {

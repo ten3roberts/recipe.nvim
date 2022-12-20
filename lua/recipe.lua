@@ -32,13 +32,13 @@ function M.setup(opts)
 		end,
 	})
 
-	if config.opts.term.jump_to_end then
-		au("TermOpen", {
-			callback = function()
-				vim.cmd("normal! G")
-			end,
-		})
-	end
+	-- if config.opts.term.jump_to_end then
+	-- 	au("TermOpen", {
+	-- 		callback = function()
+	-- 			vim.cmd("normal! G")
+	-- 		end,
+	-- 	})
+	-- end
 end
 
 ---Execute a recipe by name
@@ -69,101 +69,7 @@ function M.load_cb(cb)
 	async.run(M.load, cb)
 end
 
------ Loads recipes from `recipes.json`
------@param callback fun(recipes: table<string, Recipe>)
---function M.load_recipes(callback)
---	local path = vim.loop.fs_realpath(config.opts.recipes_file)
-
---	if not path then
---		return callback({})
---	end
-
---	local function parse(data)
---		local cwd = fn.fnamemodify(path, ":p:h")
---		local old_cwd = fn.getcwd()
-
---		local ok, obj = pcall(vim.json.decode, data)
-
---		if not ok then
---			vim.notify(string.format("Failed to parse %s:\n%s", path, obj), vim.log.levels.ERROR)
---			return
---		end
-
---		api.nvim_set_current_dir(cwd)
-
---		local count = 0
---		local result = {}
---		for k, v in pairs(obj) do
---			if type(k) ~= "string" then
---				api.nvim_err_writeln("Expected string key in %q", path)
---				return
---			end
---			count = count + 1
-
---			v = config.make_recipe(v)
---			result[k] = v
---		end
-
---		api.nvim_set_current_dir(old_cwd)
-
---		vim.notify(string.format("Loaded %d recipes", count))
-
---		return result
---	end
-
---	local function read()
---		memo(path, function(data)
---			if not data then
---				return {}
---			end
-
---			modified_in_vim[path] = nil
-
---			local value = parse(data)
---			return value
---		end, callback)
---	end
-
---	if modified_in_vim[path] then
---		lib.trust_path(path, function()
---			vim.notify("Trusted: " .. path)
---		end)
---		read()
---	else
---		lib.is_trusted(path, function(trusted)
---			if trusted then
---				cache[path] = true
---				return read()
---			else
---				local mtime = fn.getftime(path)
---				local strtime = fn.strftime("%c", mtime)
---				local dur = lib.format_time((fn.localtime() - mtime) * 1000)
---				local trust = fn.confirm(
---					string.format("Trust recipes from %q?\nModified %s (%s ago)", path, strtime, dur),
---					"&Yes\n&No\n&View file",
---					2
---				)
---				if trust == 1 then
---					lib.trust_path(path, function() end)
---					cache[path] = true
---					return read()
---				elseif trust == 2 then
---					cache[path] = true
---					vim.notify(string.format("%q was not trusted. No recipes read", path), vim.log.levels.WARN)
---				elseif trust == 3 then
---					vim.cmd("edit " .. fn.fnameescape(path))
---					vim.notify("Viewing recipes. Use :w to accept and trust file")
---				end
-
---				return {}
---			end
---		end)
---	end
---end
-
---- Execute a recipe by name asynchronously
----@param name string
----@param callback fun(code: number)|nil
+---Executes a recipe by name
 function M.bake(name, callback)
 	M.load_cb(function(recipes)
 		local recipe = recipes[name]
@@ -177,46 +83,56 @@ function M.bake(name, callback)
 end
 
 --- Execute a recipe by name asynchronously
----@param name string
+---@type fun(name: string): RecipeStore
 M.bake_async = async.wrap(M.bake, 2)
+
+function M.make_recipe(opts)
+	local core = require("recipe.core")
+
+	if type(opts) == "string" then
+		return core.Recipe:new({ cmd = opts })
+	else
+		return core.Recipe:new(opts)
+	end
+end
 
 --- Execute an arbitrary command
 ---@param recipe Recipe
 function M.execute_async(recipe)
-	local core = require("recipe.core")
-	recipe = core.Recipe:new(recipe)
-	-- Execute dependencies before
-	-- local semaphore = { remaining = 1 }
+	-- local core = require("recipe.core")
+	-- recipe = core.Recipe:new(recipe)
+	-- -- Execute dependencies before
+	-- -- local semaphore = { remaining = 1 }
 
-	-- 	local function ex(code)
-	-- 		if semaphore.remaining == nil or code ~= 0 then
-	-- 			semaphore.remaining = nil
-	-- 			return
+	-- -- 	local function ex(code)
+	-- -- 		if semaphore.remaining == nil or code ~= 0 then
+	-- -- 			semaphore.remaining = nil
+	-- -- 			return
+	-- -- 		end
+
+	-- -- 		semaphore.remaining = semaphore.remaining - 1
+
+	-- -- 		if semaphore.remaining == 0 then
+	-- -- 			lib.spawn(key, recipe, callback)
+	-- -- 		end
+	-- -- 	end
+
+	-- local deps = {}
+	-- for _, v in ipairs(recipe.depends_on or {}) do
+	-- 	table.insert(deps, function()
+	-- 		if type(v) == "string" then
+	-- 			M.bake_async(v)
+	-- 		else
+	-- 			M.execute_async(v)
 	-- 		end
+	-- 	end)
+	-- end
 
-	-- 		semaphore.remaining = semaphore.remaining - 1
+	-- if #deps > 0 then
+	-- 	async.util.join(deps)
+	-- end
 
-	-- 		if semaphore.remaining == 0 then
-	-- 			lib.spawn(key, recipe, callback)
-	-- 		end
-	-- 	end
-
-	local deps = {}
-	for _, v in ipairs(recipe.components.dependencies or recipe.components.depends_on or {}) do
-		table.insert(deps, function()
-			if type(v) == "string" then
-				M.bake_async(v)
-			else
-				M.execute_async(v)
-			end
-		end)
-	end
-
-	if #deps > 0 then
-		async.util.join(deps)
-	end
-
-	lib.spawn_async(recipe)
+	return lib.spawn_tree(recipe)
 end
 
 ---Execute a recipe

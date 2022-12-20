@@ -23,14 +23,12 @@
   },
   "long-process": {
     "cmd": "notify-send Hello There",
-    "components": {
-      "dependencies": [
-        "sleep",
-        {
-          "cmd": "firefox --url 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'",
-          "depends_on": ["sleep"]
-        }
-      ]
-    }
+    "dependencies": [
+      "sleep",
+      {
+        "cmd": "firefox --url 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'",
+        "depends_on": ["sleep"]
+      }
+    ]
   }
 }

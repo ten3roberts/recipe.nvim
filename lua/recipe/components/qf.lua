@@ -1,4 +1,4 @@
-local util = require("recipe.util")
+local api = vim.api
 local M = {
 	opts = {
 		max_lines = 10000,
@@ -6,23 +6,21 @@ local M = {
 	},
 }
 
-local lock = nil
-
 local quickfix = require("recipe.quickfix")
 
-local function on_output(task, line)
+---@type Component
+local qf = {}
+
+---comment
+---@param task Task
+function qf.on_output(task)
 	local qf = task.data.qf
 
-	if #qf.lines > M.opts.max_lines then
-		return
-	end
-
-	line = util.remove_escape_codes(line)
-	table.insert(qf.lines, line)
+	local lines = api.nvim_buf_get_lines(task.bufnr, 0, -1, true)
 
 	local cur = vim.loop.hrtime()
 	local function write_qf()
-		qf.lock = quickfix.set(qf.lock, task.recipe, qf.lines)
+		qf.lock = quickfix.set(qf.lock, task.recipe, lines)
 		qf.last_report = vim.loop.hrtime()
 	end
 
@@ -50,9 +48,6 @@ local function on_output(task, line)
 	end
 end
 
----@type Component
-local qf = {}
-
 function qf.on_start(task)
 	task.data.qf = {
 		last_report = 0,
@@ -70,12 +65,10 @@ function qf.on_exit(task)
 		qf.in_flight = nil
 	end
 
-	qf.lock = quickfix.set(qf.lock, task.recipe, qf.lines)
+	local lines = api.nvim_buf_get_lines(task.bufnr, 0, -1, true)
+	qf.lock = quickfix.set(qf.lock, task.recipe, lines)
 	quickfix.release_lock(qf.lock)
 end
-
-qf.on_stdout = on_output
-qf.on_stderr = on_output
 
 function M.setup(opts)
 	M.opts = vim.tbl_extend("force", M.opts, opts or {})

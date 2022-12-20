@@ -195,7 +195,7 @@ function M.memoize_file(path, parse)
 end
 
 ---@generic T
----@return fun(path: string, parse: fun(data: string|nil): T): T, boolean
+---@return fun(path: string, parse: fun(data: string|nil, path: string|nil): T): T, boolean
 function M.memoize_files()
 	local cache = {}
 
@@ -226,7 +226,7 @@ function M.memoize_files()
 		end)
 
 		async.util.scheduler()
-		local value = parse(data)
+		local value = parse(data, path)
 
 		cache[path] = value
 		return value, true
@@ -258,21 +258,36 @@ function M.curry_output(method, task)
 	local prev_line = ""
 	local on_output = components.collect_method(task.recipe.components, method)
 
-	return
-		function(_, lines)
-			-- Complete previous line
-			prev_line = prev_line .. lines[1]
+	return function(_, lines)
+		on_output(task)
+	end, function() end
+end
 
-			for i = 2, #lines do
-				on_output(task, prev_line)
-				prev_line = ""
-				-- Before pushing a new line, invoke the stdout for components
-				prev_line = lines[i]
+--from https://github.com/stevearc/overseer.nvim/blob/82ed207195b58a73b9f7d013d6eb3c7d78674ac9/lua/overseer/util.lua#L119
+---@param win number
+function M.scroll_to_end(win)
+	local bufnr = vim.api.nvim_win_get_buf(win)
+	local lnum = vim.api.nvim_buf_line_count(bufnr)
+	local last_line = vim.api.nvim_buf_get_lines(bufnr, -2, -1, true)[1]
+	-- Hack: terminal buffers add a bunch of empty lines at the end. We need to ignore them so that
+	-- we don't end up scrolling off the end of the useful output.
+	-- This has the unfortunate effect that we may not end up tailing the output as more arrives
+	if vim.bo[bufnr].buftype == "terminal" then
+		local half_height = math.floor(vim.api.nvim_win_get_height(win) / 2)
+		for i = lnum, 1, -1 do
+			local prev_line = vim.api.nvim_buf_get_lines(bufnr, i - 1, i, true)[1]
+			if prev_line ~= "" then
+				-- Only scroll back if we detect a lot of padding lines, and the total real output is
+				-- small. Otherwise the padding may be legit
+				if lnum - i >= half_height and i < half_height then
+					lnum = i
+					last_line = prev_line
+				end
+				break
 			end
-		end,
-		function()
-			on_output(task, prev_line)
 		end
+	end
+	vim.api.nvim_win_set_cursor(win, { lnum, vim.api.nvim_strwidth(last_line) })
 end
 
 return M

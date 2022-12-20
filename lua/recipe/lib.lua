@@ -1,4 +1,5 @@
 local config = require("recipe.config")
+local term = require("recipe.adapters.term")
 local uv = vim.loop
 local fn = vim.fn
 
@@ -41,21 +42,42 @@ end
 ---@type { [string]: Task }
 local tasks = {}
 
---- Spawns a recipe
----@async
+---Spawns and awaits the whole dependency tree of recipe
 ---@param recipe Recipe
----@param callback fun(code: number)|nil
-function M.spawn(recipe, callback)
-	local adapters = config.opts.adapters
+---@return Task|nil, number|nil
+---@async
+function M.spawn_tree(recipe)
+	local deps = {}
+	for _, v in ipairs(recipe.depends_on or {}) do
+		table.insert(deps, function()
+			vim.notify("Executing dependency: " .. v:fmt_cmd())
+			M.spawn_await(v, false)
+		end)
+	end
+
+	-- Await all dependencies
+	if #deps > 0 then
+		async.util.join(deps)
+	end
+
+	return M.spawn_await(recipe, true)
+end
+
+---Spawn a new task using the provided recipe
+---This executes the task directly without regard for dependencies
+---@param recipe Recipe
+---@param interactive boolean
+---@return Task|nil
+function M.spawn(recipe, interactive)
 	if not recipe.components.plain and type(recipe.cmd) == "string" then
 		recipe.cmd = recipe.cmd:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)
 	end
 
+	local key = recipe:fmt_cmd()
 	local start_time = uv.hrtime()
 
-	local function on_exit(code)
-		local task = tasks[recipe.name]
-		tasks[recipe.name] = nil
+	local function on_exit(_, code)
+		tasks[key] = nil
 
 		local duration = (uv.hrtime() - start_time) / 1000000
 
@@ -63,70 +85,66 @@ function M.spawn(recipe, callback)
 
 		local state = code == 0 and "Success" or string.format("Failure %d", code)
 
-		local msg = string.format("%s: %q %s", state, recipe:fmt_cmd():sub(1, 64), M.format_time(duration))
+		local msg = string.format("%s: %q %s", state, key, M.format_time(duration))
 		vim.notify(msg, level)
-
-		for _, cb in ipairs(task.callbacks) do
-			cb(code)
-		end
 	end
 
 	for _, hook in ipairs(config.opts.hooks.pre) do
 		hook(recipe)
 	end
 
-	---@diagnostic disable-next-line: undefined-field
-	local adapter = adapters[recipe.adapter or recipe.kind or "build"]
-	if adapter == nil then
-		---@diagnostic disable-next-line: undefined-field
-		util.error("No such adapter: " .. vim.inspect(recipe.adapter or recipe.kind))
+	-- Check if task is already running
+	local task = tasks[key]
+	-- Update env
+	if task then
+		if interactive then
+			task.focus()
+		end
+
+		return task
+		-- local task = tasks[recipe.name]
+		-- if recipe.components.restart then
+		-- 	vim.notify("Restarting " .. recipe.name)
+		-- 	task = task.restart(on_exit)
+		-- else
+		-- 	table.insert(task.callbacks, callback or function(_) end)
+		-- 	task.focus()
+		-- 	return
+		-- end
+		-- Run the task as normal
+	end
+
+	local task = term.execute(recipe)
+
+	if task == nil then
+		util.error("Failed to launch : " .. vim.inspect(recipe))
 		return
 	end
 
-	async.run(function()
-		-- Check if task is already running
-		local task = nil
-		if config.opts.dotenv then
-			local env = require("recipe.dotenv").load(config.opts.dotenv)
-			recipe.env = vim.tbl_extend("keep", recipe.env or { __type = "table" }, env)
-		end
+	table.insert(task.callbacks, on_exit)
 
-		if tasks[recipe.name] then
-			local task = tasks[recipe.name]
-			if recipe.components.restart then
-				vim.notify("Restarting " .. recipe.name)
-				task = task.restart(on_exit)
-			else
-				table.insert(task.callbacks, callback or function(_) end)
-				task.focus()
-				return
-			end
-		else
-			-- Run the task as normal
-			task = adapter.execute(recipe.name, recipe, on_exit)
-		end
+	tasks[key] = task
 
-		task.recipe = recipe
-		tasks[recipe.name] = task
-
-		if task == nil then
-			util.error("Failed to launch : " .. vim.inspect(recipe))
-			return
-		end
-
-		task.callbacks = { callback or function(_) end }
-	end, function() end)
+	return task
 end
 
-M.spawn_async = async.wrap(M.spawn, 2)
+---Spawn a task using the provided recipe and await completion
+---@param recipe Recipe
+---@param interactive boolean
+---@return Task|nil,number|nil
+function M.spawn_await(recipe, interactive)
+	local task = M.spawn(recipe, interactive)
+	if not task then
+		return
+	end
 
-local success_codes = {
-	[0] = true,
-	[130] = true, -- SIGINT
-	[129] = true, -- SIGTERM
-}
+	---@type Task, number
+	local task, code = async.wrap(function(cb)
+		table.insert(task.callbacks, cb)
+	end, 1)()
 
-M.success_codes = success_codes
+	return task, code
+end
 
 ---@return Task|nil
 function M.get_task(name)

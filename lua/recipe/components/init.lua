@@ -4,8 +4,7 @@ local components = {}
 ---@class Component
 ---@field on_start function(task: Task)|nil
 ---@field on_exit function(task: Task)|nil
----@field on_stdout function(task: Task, line: string)|nil
----@field on_stderr function(task: Task, line: string)|nil
+---@field on_output function(task: Task, bufnr: number)|nil
 local M = {}
 
 function M.register(name, component)

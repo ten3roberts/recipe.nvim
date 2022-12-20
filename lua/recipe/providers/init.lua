@@ -2,13 +2,7 @@ local async = require("plenary.async")
 local util = require("recipe.util")
 local M = {}
 ---@class Provider
-local Provider = {}
-Provider.__index = Provider
-
----@async
----@param path string
----@return RecipeStore
-function Provider.load(path) end
+---@field load fun(path: string): RecipeStore
 
 local providers = {}
 

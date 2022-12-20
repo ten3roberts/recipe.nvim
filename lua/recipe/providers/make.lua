@@ -44,6 +44,6 @@ end
 
 local M = {}
 function M.setup()
-	require("recipe").register("make", provider)
+	require("recipe.providers").register("make", provider)
 end
 return M

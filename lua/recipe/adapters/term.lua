@@ -22,6 +22,13 @@ function M.open_win(config, bufnr)
 	local row = math.ceil((lines - height) / 2 - cmdheight)
 	local col = math.ceil((cols - width) / 2)
 
+	local function open_split(split)
+		vim.cmd(split)
+		local win = vim.api.nvim_get_current_win()
+		api.nvim_win_set_buf(win, bufnr)
+		return win
+	end
+
 	if config.kind == "float" then
 		local win = api.nvim_open_win(bufnr, true, {
 			relative = "editor",
@@ -47,17 +54,14 @@ function M.open_win(config, bufnr)
 
 		return win
 	elseif config.kind == "split" then
-		vim.cmd("split")
-		return vim.api.nvim_get_current_win()
+		return open_split("split")
 	elseif config.kind == "vsplit" then
-		vim.cmd("vsplit")
-		return vim.api.nvim_get_current_win()
+		return open_split("vsplit")
 	elseif config.kind == "smart" then
 		local font_lh_ratio = 0.3
 		local w, h = api.nvim_win_get_width(0) * font_lh_ratio, api.nvim_win_get_height(0)
 		local cmd = (w > h) and "vsplit" or "split"
-		vim.cmd(cmd)
-		return vim.api.nvim_get_current_win()
+		return open_split(cmd)
 	else
 		api.nvim_err_writeln("Recipe: Unknown terminal mode " .. config.kind)
 	end
@@ -74,109 +78,123 @@ local function find_win(bufnr)
 	end
 end
 
----@param key string
----@param recipe Recipe
----@param on_exit fun(code: number)
----@return Task|nil
-function M.execute(key, recipe, on_exit, win)
-	local util = require("recipe.util")
+local function acquire_win(key, config, bufnr)
+	local existing = terminals[key]
+	local win
 
-	local bufnr = api.nvim_create_buf(false, true)
-
-	---@type TermConfig
-	local config = vim.tbl_deep_extend("force", require("recipe.config").opts.term, {})
-
-	local info = {
-		restarted = false,
-		code = nil,
-	}
-
-	local last_term = terminals[key]
-	if win == nil and last_term then
-		win = find_win(last_term)
+	if existing then
+		vim.notify("Existing terminal buffer")
+		win = find_win(existing)
 	end
 
-	win = win or M.open_win(config, bufnr)
+	if win then
+		vim.notify("Found open terminal window for " .. key)
+		-- Focus the window and buffer
+		api.nvim_set_current_win(win)
+		api.nvim_win_set_buf(win, bufnr)
+		return win
+	else
+		vim.notify("Opening new window for " .. key)
+		return M.open_win(config, bufnr)
+	end
+end
 
-	api.nvim_set_current_win(win)
-	api.nvim_win_set_buf(win, bufnr)
+---@param recipe Recipe
+---@return Task|nil
+function M.execute(recipe)
+	local util = require("recipe.util")
 
-	terminals[key] = bufnr
+	local config = require("recipe.config")
 
-	local task = { recipe = recipe, data = {} }
-	local on_stdout, stdout_cleanup = util.curry_output("on_stdout", task)
-	local on_stderr, stderr_cleanup = util.curry_output("on_stderr", task)
+	---@type TermConfig
+	local term_config = vim.tbl_deep_extend("force", require("recipe.config").opts.term, {})
 
-	local function exit(_, code)
-		stdout_cleanup()
-		stderr_cleanup()
+	local key = recipe:fmt_cmd()
 
-		if info.restarted then
-			return
+	-- Create a blank buffer for the terminal
+	local bufnr = api.nvim_create_buf(false, true)
+
+	local task = { recipe = recipe, data = {}, bufnr = bufnr, callbacks = {} }
+
+	local async = require("plenary.async")
+	async.run(function()
+		if config.opts.dotenv then
+			local env = require("recipe.dotenv").load(config.opts.dotenv)
+			recipe.env = vim.tbl_extend("keep", recipe.env or { __type = "table" }, env)
 		end
 
-		info.code = code
+		async.util.scheduler()
 
-		vim.defer_fn(function()
+		-- Attempt to reuse window or open a new one
+		local win = acquire_win(key, term_config, bufnr)
+
+		-- Do this afterwards to be able to look up the old buffer
+		terminals[key] = bufnr
+		assert(api.nvim_win_get_buf(win) == bufnr, "Returned window does not display the terminal buffer")
+
+		local on_stdout, stdout_cleanup = util.curry_output("on_output", task)
+		local on_stderr, stderr_cleanup = util.curry_output("on_output", task)
+		local function on_exit(_, code)
+			stdout_cleanup()
+			stderr_cleanup()
+
 			components.execute(recipe.components, "on_exit", task)
 			if code == 0 and config.auto_close and fn.bufloaded(bufnr) == 1 then
-				win = find_win(bufnr)
+				local win = find_win(bufnr)
 				if win and api.nvim_win_is_valid(win) then
 					api.nvim_win_close(win, {})
 				end
 			end
 
-			on_exit(code)
-		end, 1000)
-	end
-
-	local oldbuf = api.nvim_get_current_buf()
-	api.nvim_set_current_buf(bufnr)
-
-	local id = fn.termopen(recipe.cmd, {
-		cwd = recipe.cwd,
-		on_exit = exit,
-		env = recipe.env,
-		on_stdout = on_stdout,
-		on_stderr = on_stderr,
-	})
-
-	api.nvim_set_current_buf(oldbuf)
-
-	if id <= 0 then
-		util.error("Failed to start job")
-		return nil
-	end
-
-	components.execute(recipe.components, "on_start", task)
-
-	info.running = true
-
-	task.stop = function()
-		fn.jobstop(id)
-		-- fn.jobwait({ id }, 1000)
-	end
-
-	task.restart = function(cb)
-		info.restarted = true
-
-		win = fn.bufwinid(bufnr)
-		if win == -1 then
-			win = nil
+			for _, cb in ipairs(task.callbacks) do
+				cb(task, code)
+			end
 		end
 
-		return M.execute(key, recipe, cb, win)
-	end
+		local jobnr = fn.termopen(recipe.cmd, {
+			cwd = recipe.cwd,
+			on_exit = vim.schedule_wrap(on_exit),
+			env = recipe.env,
+			on_stdout = on_stdout,
+			on_stderr = on_stderr,
+		})
 
-	task.focus = function()
-		win = fn.bufwinid(bufnr)
-		if win ~= -1 then
-			api.nvim_set_current_win(win)
-		elseif fn.bufloaded(bufnr) == 1 then
-			win = M.open_win(config, bufnr)
-			api.nvim_win_set_buf(win, bufnr)
+		if jobnr <= 0 then
+			util.error("Failed to start job")
+			return
 		end
-	end
+
+		components.execute(recipe.components, "on_start", task)
+		-- Update the task
+		task.running = true
+		task.stop = function()
+			fn.jobstop(jobnr)
+			fn.jobwait({ jobnr }, 1000)
+		end
+
+		task.restart = function(cb)
+			fn.jobstop(jobnr)
+			fn.jobwait({ jobnr }, 1000)
+
+			return M.execute(recipe)
+		end
+
+		task.focus = function()
+			local win = fn.bufwinid(bufnr)
+			if win ~= -1 then
+				api.nvim_set_current_win(win)
+			elseif fn.bufloaded(bufnr) == 1 then
+				win = M.open_win(config, bufnr)
+				api.nvim_win_set_buf(win, bufnr)
+			end
+		end
+
+		if term_config.jump_to_end then
+			vim.schedule(function()
+				util.scroll_to_end(win)
+			end)
+		end
+	end, function() end)
 
 	return task
 end

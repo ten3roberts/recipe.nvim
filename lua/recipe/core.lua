@@ -7,9 +7,9 @@ local util = require("recipe.util")
 ---@field env table<string, string>
 ---@field source string
 ---@field name string
----@field adapter string
 ---@field components table<string, any>
----@field priority string
+---@field depends_on table<string, Recipe>
+---@field priority number
 local Recipe = {}
 
 Recipe.__index = Recipe
@@ -19,14 +19,20 @@ local config = require("recipe.config")
 ---@return Recipe
 function Recipe:new(o)
 	o.components = o.components or {}
+
 	for k, v in pairs(config.opts.default_components) do
 		if o.components[k] == nil then
 			o.components[k] = v
 		end
 	end
-	o.name = o.name or (type(o.cmd) == "string" and o.cmd or table.concat(o.cmd, " ")) or util.random_name()
+
+	if o.name == nil then
+		o.name = (type(o.cmd) == "string" and o.cmd or table.concat(o.cmd, " ")) or util.random_name()
+	end
+
 	o.cwd = o.cwd or vim.fn.getcwd()
 	o.priority = o.priority or 1000
+
 	return setmetatable(o, self)
 end
 
@@ -40,10 +46,13 @@ end
 
 ---@return string
 function Recipe:fmt_cmd()
-	if type(self.cmd) == "table" then
-		return table.concat(self.cmd, " ")
+	local cmd = self.cmd
+	if type(cmd) == "table" then
+		return table.concat(cmd, " ")
+	elseif type(cmd) == "string" then
+		return cmd
 	else
-		return self.cmd
+		error("Invalid type")
 	end
 end
 
