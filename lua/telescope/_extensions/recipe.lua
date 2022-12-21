@@ -4,6 +4,6 @@ return require("telescope").register_extension({
 		-- access extension config and user config
 	end,
 	exports = {
-		pick_recipe = async.void(require("recipe.telescope").pick),
+		pick_recipe = async.void(require("recipe.ui.telescope").pick),
 	},
 })

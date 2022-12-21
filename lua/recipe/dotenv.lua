@@ -29,10 +29,6 @@ local function tok_keyword(data, _)
 	return nil
 end
 
----@class Token
----@field data string
----@field kind string
-
 ---@param data string
 ---@return Token|nil
 ---@return string|nil

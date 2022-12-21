@@ -1,29 +1,15 @@
 local async = require("plenary.async")
+local config = require("recipe.config")
+local util = require("recipe.util")
 local api = vim.api
 local fn = vim.fn
 local M = {}
 
 local components = require("recipe.components")
 
----@class term
----@field bufnr number
----@field win number
-local term = {}
-
 ---Opens a new terminal
 ---@param config TermConfig
 function M.open_win(config, bufnr)
-	local lines = vim.o.lines
-	local cols = vim.o.columns
-	local cmdheight = vim.o.cmdheight
-
-	print("Config: ", vim.inspect(config))
-	local height = math.ceil(config.height < 1 and config.height * lines or config.height)
-	local width = math.ceil(config.width < 1 and config.width * cols or config.width)
-
-	local row = math.ceil((lines - height) / 2 - cmdheight)
-	local col = math.ceil((cols - width) / 2)
-
 	local function open_split(split)
 		vim.cmd(split)
 		local win = vim.api.nvim_get_current_win()
@@ -32,6 +18,16 @@ function M.open_win(config, bufnr)
 	end
 
 	if config.kind == "float" then
+		local lines = vim.o.lines
+		local cols = vim.o.columns
+		local cmdheight = vim.o.cmdheight
+
+		local height = math.ceil(config.height < 1 and config.height * lines or config.height)
+		local width = math.ceil(config.width < 1 and config.width * cols or config.width)
+
+		local row = math.ceil((lines - height) / 2 - cmdheight)
+		local col = math.ceil((cols - width) / 2)
+
 		local win = api.nvim_open_win(bufnr, true, {
 			relative = "editor",
 			row = row,
@@ -80,13 +76,14 @@ local function find_win(bufnr)
 	end
 end
 
-local function acquire_win(key, config, bufnr)
+function M.acquire_focused_win(key, config, bufnr)
 	local existing = terminals[key]
 	local win
 
 	if existing then
-		vim.notify("Existing terminal buffer")
+		vim.notify("Existing terminal buffer" .. existing)
 		win = find_win(existing)
+		vim.notify("Found window: " .. vim.inspect(win))
 	end
 
 	if win then
@@ -101,48 +98,143 @@ local function acquire_win(key, config, bufnr)
 	end
 end
 
+---@enum TaskState
+local TaskState = {
+	PENDING = "pending",
+	RUNNING = "running",
+	STOPPED = "stopped",
+}
+
+---Represents a running task
+---@class Task
+---@field bufnr number The buffer containing the process output
+---@field jobnr number|nil
+---@field restart fun(on_exit: fun(code: number): Task|nil): Task
+---@field recipe Recipe
+---@field data table<string, any>
+---@field on_exit fun(task: Task, code: number)[]
+---@field deferred_focus fun(task: Task)
+---@field deps Task[]
+---@field state TaskState
+---@field code number|nil
+---@field open_mode TermConfig
+local Task = {}
+Task.__index = Task
+
+function Task:attach_callback(cb)
+	if self.state == TaskState.STOPPED then
+		vim.schedule(function()
+			cb(self, self.code)
+		end)
+	else
+		table.insert(self.on_exit, cb)
+	end
+end
+
+function Task:stop()
+	for _, dep in ipairs(self.deps) do
+		dep:stop()
+	end
+
+	if self.jobnr then
+		fn.jobstop(self.jobnr)
+	end
+end
+
+---@param mode TermConfig
+function Task:focus(mode)
+	local function f()
+		local win = M.acquire_focused_win(
+			self.recipe.name,
+			vim.tbl_extend("keep", mode, require("recipe.config").opts.term),
+			self.bufnr
+		)
+
+		if config.opts.scroll_to_end then
+			util.scroll_to_end(win)
+		end
+	end
+
+	if self.state ~= TaskState.PENDING then
+		f()
+	else
+		self.deferred_focus = f
+	end
+end
+
+function Task:restart()
+	return self
+end
+
+Task.join = async.wrap(Task.attach_callback, 2)
+
 ---@param recipe Recipe
----@return Task|nil
+---@return Task
+---Starts executing the task
 function M.execute(recipe)
-	local util = require("recipe.util")
-
-	local config = require("recipe.config")
-
 	---@type TermConfig
-	local term_config = vim.tbl_deep_extend("force", require("recipe.config").opts.term, {})
+	-- local term_config = vim.tbl_deep_extend("force", require("recipe.config").opts.term, {})
 
 	local key = recipe.name
 
 	-- Create a blank buffer for the terminal
 	local bufnr = api.nvim_create_buf(false, true)
 
-	local task = { recipe = recipe, data = {}, bufnr = bufnr, callbacks = {} }
-
-	-- Attempt to reuse window or open a new one
-	local win = acquire_win(key, term_config, bufnr)
-
 	-- Do this afterwards to be able to look up the old buffer
 	terminals[key] = bufnr
-	assert(api.nvim_win_get_buf(win) == bufnr, "Returned window does not display the terminal buffer")
 	local env = vim.deepcopy(recipe.env) or {}
 	env.__type = "table"
 
+	local task = setmetatable({
+		bufnr = bufnr,
+		jobnr = nil,
+		recipe = recipe,
+		state = TaskState.PENDING,
+		data = {},
+		deps = {},
+		on_exit = {},
+	}, Task)
+
 	async.run(function()
+		--- Run dependencies
+
+		local deps = {}
+		local lib = require("recipe.lib")
+		for _, v in ipairs(recipe.depends_on or {}) do
+			vim.notify("Executing dependency: " .. v:fmt_cmd())
+
+			local child = lib.spawn(v)
+			table.insert(task.deps, child)
+			table.insert(deps, function()
+				child:join()
+			end)
+		end
+
+		-- Await all dependencies
+		if #deps > 0 then
+			async.util.join(deps)
+		end
+
+		task.deps = {}
+
 		if config.opts.dotenv then
 			local denv = require("recipe.dotenv").load(config.opts.dotenv)
 			env = vim.tbl_extend("keep", env, denv)
 		end
 
-		async.util.scheduler()
-
 		local on_stdout, stdout_cleanup = util.curry_output("on_output", task)
 		local on_stderr, stderr_cleanup = util.curry_output("on_output", task)
 
 		local function on_exit(_, code)
+			task.jobnr = nil
+			task.code = code
+			task.state = TaskState.STOPPED
+
 			stdout_cleanup()
 			stderr_cleanup()
 
 			components.execute(recipe.components, "on_exit", task)
+
 			if code == 0 and config.auto_close and fn.bufloaded(bufnr) == 1 then
 				local win = find_win(bufnr)
 				if win and api.nvim_win_is_valid(win) then
@@ -150,60 +242,47 @@ function M.execute(recipe)
 				end
 			end
 
-			for _, cb in ipairs(task.callbacks) do
+			for _, cb in ipairs(task.on_exit) do
 				cb(task, code)
 			end
 		end
 
-		local jobnr = fn.termopen(recipe.cmd, {
-			cwd = recipe.cwd,
-			on_exit = vim.schedule_wrap(on_exit),
-			env = env,
-			on_stdout = on_stdout,
-			on_stderr = on_stderr,
-		})
-
-		if jobnr <= 0 then
-			util.error("Failed to start job")
+		if vim.fn.isdirectory(recipe.cwd) ~= 1 then
+			util.error("No such directory: " .. vim.inspect(recipe.cwd))
+			task.state = TaskState.STOPPED
+			task.code = -1
 			return
 		end
 
+		local jobnr
+		vim.api.nvim_buf_call(task.bufnr, function()
+			jobnr = fn.termopen(recipe.cmd, {
+				cwd = recipe.cwd,
+				on_exit = vim.schedule_wrap(on_exit),
+				env = env,
+				on_stdout = on_stdout,
+				on_stderr = on_stderr,
+			})
+		end)
+
+		if jobnr <= 0 then
+			util.error("Failed to run command: " .. recipe:fmt_cmd())
+			task.state = TaskState.STOPPED
+			task.code = -1
+			return
+		end
+
+		task.state = TaskState.RUNNING
+		task.jobnr = jobnr
+
 		components.execute(recipe.components, "on_start", task)
 
-		-- Update the task
-		task.running = true
-		task.stop = function()
-			fn.jobstop(jobnr)
-			fn.jobwait({ jobnr }, 1000)
-		end
-
-		task.restart = function()
-			fn.jobstop(jobnr)
-			fn.jobwait({ jobnr }, 1000)
-
-			return M.execute(recipe)
-		end
-
-		task.focus = function()
-			local win = fn.bufwinid(bufnr)
-			if win ~= -1 then
-				api.nvim_set_current_win(win)
-			elseif fn.bufloaded(bufnr) == 1 then
-				win = M.open_win(term_config, bufnr)
-				api.nvim_win_set_buf(win, bufnr)
-			end
-		end
-
-		if term_config.jump_to_end then
-			vim.schedule(function()
-				util.scroll_to_end(win)
-			end)
+		if task.deferred_focus then
+			task.deferred_focus(task)
 		end
 	end, function() end)
 
 	return task
 end
-
-function M.on_exit() end
 
 return M

@@ -44,7 +44,6 @@ local function parse_recipes(data, path)
 				-- Try parse it
 				if not dep then
 					local value = json[v]
-					print("Loading ", v, vim.inspect(value), "recursively")
 					local r, err = parse_recipe(v, value)
 
 					if r then
@@ -64,10 +63,14 @@ local function parse_recipes(data, path)
 				table.insert(recipe.depends_on, dep)
 			else
 				if type(v) == "table" then
-					local dep, err = parse_recipe(key .. "." .. i, v)
+					local dep, err = parse_recipe(key .. ":dep." .. i, v)
+
 					if not dep then
 						return nil, "Failed to parse dependency:\n" .. err
 					end
+
+					dep.hidden = true
+					recipes[dep.name] = dep
 
 					table.insert(recipe.depends_on, dep)
 				end

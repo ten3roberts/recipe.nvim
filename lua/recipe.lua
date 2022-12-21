@@ -99,40 +99,7 @@ end
 --- Execute an arbitrary command
 ---@param recipe Recipe
 function M.execute_async(recipe)
-	-- local core = require("recipe.core")
-	-- recipe = core.Recipe:new(recipe)
-	-- -- Execute dependencies before
-	-- -- local semaphore = { remaining = 1 }
-
-	-- -- 	local function ex(code)
-	-- -- 		if semaphore.remaining == nil or code ~= 0 then
-	-- -- 			semaphore.remaining = nil
-	-- -- 			return
-	-- -- 		end
-
-	-- -- 		semaphore.remaining = semaphore.remaining - 1
-
-	-- -- 		if semaphore.remaining == 0 then
-	-- -- 			lib.spawn(key, recipe, callback)
-	-- -- 		end
-	-- -- 	end
-
-	-- local deps = {}
-	-- for _, v in ipairs(recipe.depends_on or {}) do
-	-- 	table.insert(deps, function()
-	-- 		if type(v) == "string" then
-	-- 			M.bake_async(v)
-	-- 		else
-	-- 			M.execute_async(v)
-	-- 		end
-	-- 	end)
-	-- end
-
-	-- if #deps > 0 then
-	-- 	async.util.join(deps)
-	-- end
-
-	return lib.spawn_tree(recipe)
+	return lib.spawn(recipe)
 end
 
 ---Execute a recipe

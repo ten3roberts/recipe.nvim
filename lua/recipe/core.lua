@@ -1,8 +1,10 @@
 ---@alias RecipeStore table<string, Recipe>
+local api = vim.api
 local util = require("recipe.util")
 
 ---@class Recipe
 ---@field cmd string|string[]
+---@field hidden boolean
 ---@field cwd string
 ---@field env table<string, string>
 ---@field source string
@@ -66,9 +68,6 @@ end
 function Recipe:has_component(type)
 	return self.components[type] ~= nil
 end
-
----@class Component
----@field type string
 
 return {
 	Recipe = Recipe,

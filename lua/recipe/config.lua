@@ -1,18 +1,6 @@
 local M = {}
 local util = require("recipe.util")
 
----Represents a running task
----@class Task
----@field bufnr number The buffer containing the process output
----@field stop fun()
----@field focus fun()
----@field restart fun(on_exit: fun(code: number): Task|nil): Task
----@field callbacks fun(code: number)[] added by lib
----@field recipe Recipe
----@field data table<string, any>
----@field output string[]
----@field callbacks fun(task: Task, code: number)[]
-
 ---@class Config
 ---@field custom_recipes table<string, Recipe>
 ---@field term TermConfig customize terminal
@@ -26,9 +14,8 @@ M.opts = {
 		width = 0.5,
 		kind = "smart",
 		border = "shadow",
-		jump_to_end = true,
-		auto_close = false,
 	},
+	scroll_to_end = true,
 	recipes_file = "recipes.json",
 	--- Define custom recipes, global and per filetype
 	custom_recipes = {

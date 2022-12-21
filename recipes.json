@@ -30,5 +30,16 @@
         "depends_on": ["sleep"]
       }
     ]
+  },
+  "with-dependencies": {
+    "cmd": ["notify-send", "Runnning command"],
+    "depends_on": [
+      {
+        "cmd": "sleep 10 && notify-send a"
+      },
+      {
+        "cmd": "sleep 10 && notify-send b"
+      }
+    ]
   }
 }

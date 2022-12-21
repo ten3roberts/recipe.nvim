@@ -42,33 +42,14 @@ end
 ---@type { [string]: Task }
 local tasks = {}
 
----Spawns and awaits the whole dependency tree of recipe
----@param recipe Recipe
----@return Task|nil, number|nil
----@async
-function M.spawn_tree(recipe)
-	local deps = {}
-	for _, v in ipairs(recipe.depends_on or {}) do
-		table.insert(deps, function()
-			vim.notify("Executing dependency: " .. v:fmt_cmd())
-			M.spawn_await(v, false)
-		end)
-	end
-
-	-- Await all dependencies
-	if #deps > 0 then
-		async.util.join(deps)
-	end
-
-	return M.spawn_await(recipe, true)
-end
+local last_used = {}
+M.last_used = last_used
 
 ---Spawn a new task using the provided recipe
 ---This executes the task directly without regard for dependencies
 ---@param recipe Recipe
----@param interactive boolean
----@return Task|nil
-function M.spawn(recipe, interactive)
+---@return Task
+function M.spawn(recipe)
 	if not recipe.components.plain and type(recipe.cmd) == "string" then
 		recipe.cmd = recipe.cmd:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)
 	end
@@ -98,14 +79,10 @@ function M.spawn(recipe, interactive)
 	local task = tasks[key]
 	-- Update env
 	if task then
-		if interactive then
-			task.focus()
-		end
-
+		vim.inspect("Found running task")
 		return task
 		-- local task = tasks[recipe.name]
 		-- if recipe.components.restart then
-		-- 	vim.notify("Restarting " .. recipe.name)
 		-- 	task = task.restart(on_exit)
 		-- else
 		-- 	table.insert(task.callbacks, callback or function(_) end)
@@ -114,37 +91,16 @@ function M.spawn(recipe, interactive)
 		-- end
 		-- Run the task as normal
 	end
+	vim.inspect("Running task")
+	last_used[key] = vim.loop.hrtime() / 1e9
 
+	--- Begin executing the task now
 	local task = term.execute(recipe)
-
-	if task == nil then
-		util.error("Failed to launch : " .. vim.inspect(recipe))
-		return
-	end
-
-	table.insert(task.callbacks, on_exit)
+	task:attach_callback(on_exit)
 
 	tasks[key] = task
 
 	return task
-end
-
----Spawn a task using the provided recipe and await completion
----@param recipe Recipe
----@param interactive boolean
----@return Task|nil,number|nil
-function M.spawn_await(recipe, interactive)
-	local task = M.spawn(recipe, interactive)
-	if not task then
-		return
-	end
-
-	---@type Task, number
-	local task, code = async.wrap(function(cb)
-		table.insert(task.callbacks, cb)
-	end, 1)()
-
-	return task, code
 end
 
 ---@return Task|nil
@@ -158,9 +114,8 @@ function M.get_tasks()
 end
 
 function M.stop_all()
-	for k, v in pairs(tasks) do
-		vim.notify("Stopping: " .. k)
-		v.stop()
+	for _, v in pairs(tasks) do
+		v:stop()
 	end
 end
 
