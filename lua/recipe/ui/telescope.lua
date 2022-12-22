@@ -3,11 +3,54 @@ local finders = require("telescope.finders")
 local conf = require("telescope.config").values
 
 local actions = require("telescope.actions")
+local previewers = require("telescope.previewers")
 local action_state = require("telescope.actions.state")
 local providers = require("recipe.providers")
 local lib = require("recipe.lib")
 
 local M = {}
+
+local function collapse_all_nodes(tree)
+	local expanded = get_expanded_nodes(tree)
+	for _, id in ipairs(expanded) do
+		local node = tree:get_node(id)
+		node:collapse(id)
+	end
+	-- If you want to expand the root
+	-- local root = tree:get_nodes()[1]
+	-- root:expand()
+end
+
+local function new_previewer()
+	local NuiTree = require("nui.tree")
+
+	local function get_bufnr(self, status)
+		if not self.state.bufnr then
+			self.state.bufnr = vim.api.nvim_win_get_buf(status.preview_win)
+		end
+		return self.state.bufnr
+	end
+
+	local previewer = previewers.Previewer:new({
+		preview_fn = function(self, entry, status)
+			local bufnr = get_bufnr(self, status)
+			---@type RecipeView
+			local value = entry.value
+
+			local root = value.recipe:display()
+
+			local tree = NuiTree({ bufnr = bufnr, nodes = { root } })
+
+			local util = require("recipe.ui.util")
+
+			util.expand_tree(tree, 3)
+
+			tree:render()
+		end,
+	})
+
+	return previewer
+end
 
 ---@param v RecipeView
 local function score(v, now)
@@ -69,6 +112,7 @@ function M.pick(opts)
 	pickers
 		.new(opts, {
 			prompt_title = "Recipes",
+			previewer = new_previewer(),
 			finder = finders.new_table({
 				results = t,
 				entry_maker = function(entry)

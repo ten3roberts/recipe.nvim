@@ -70,7 +70,7 @@ function M.load_cb(cb)
 end
 
 ---Executes a recipe by name
-function M.bake(name, callback)
+function M.bake(name, open)
 	M.load_cb(function(recipes)
 		local recipe = recipes[name]
 
@@ -78,13 +78,9 @@ function M.bake(name, callback)
 			return util.error("No such recipe: " .. name)
 		end
 
-		M.execute(recipe, callback)
+		M.execute(recipe, open)
 	end)
 end
-
---- Execute a recipe by name asynchronously
----@type fun(name: string): RecipeStore
-M.bake_async = async.wrap(M.bake, 2)
 
 function M.make_recipe(opts)
 	local core = require("recipe.core")
@@ -99,8 +95,13 @@ end
 ---Execute a recipe
 ---@param recipe Recipe
 ---@return Task
-M.execute = function(recipe)
-	return lib.spawn(recipe)
+M.execute = function(recipe, open)
+	local task = lib.spawn(recipe)
+	if open then
+		task:focus(open)
+	end
+
+	return task
 end
 
 ---@class Frecency

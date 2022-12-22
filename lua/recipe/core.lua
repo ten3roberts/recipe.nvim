@@ -1,5 +1,4 @@
 ---@alias RecipeStore table<string, Recipe>
-local api = vim.api
 local util = require("recipe.util")
 
 ---@class Recipe
@@ -10,7 +9,7 @@ local util = require("recipe.util")
 ---@field source string
 ---@field name string
 ---@field components table<string, any>
----@field depends_on table<string, Recipe>
+---@field depends_on Recipe[]
 ---@field priority number
 local Recipe = {}
 
@@ -56,6 +55,58 @@ function Recipe:fmt_cmd()
 	else
 		error("Invalid type")
 	end
+end
+local line = require("nui.line")
+local text = require("nui.text")
+local tree = require("nui.tree")
+
+function Recipe:display_cmd()
+	local cmd = self.cmd
+	local line = line()
+
+	line:append("cmd", "Identifier")
+	line:append(": ")
+
+	if type(cmd) == "table" then
+		line:append("[ ", "Delimiter")
+		for _, v in ipairs(cmd) do
+			line:append('"' .. v .. '"', "String")
+			line:append(" ")
+		end
+		line:append("]", "Delimiter")
+	elseif type(cmd) == "string" then
+		line:append('"', "String")
+		line:append(cmd, "String")
+		line:append('"', "String")
+	else
+		error("Invalid type")
+	end
+
+	return line
+end
+
+function Recipe:display()
+	local function ident(name)
+		return text(name, "Identifier")
+	end
+
+	local nodes = {
+		tree.Node({ text = line({ ident("name"), text(": "), text(self.name, "String") }) }, {}),
+		tree.Node({ text = self:display_cmd() }, {}),
+		tree.Node({ text = line({ ident("source"), text(": "), text(self.source, "String") }) }, {}),
+		tree.Node({ text = line({ ident("cwd"), text(": "), text(self.cwd, "String") }) }, {}),
+	}
+
+	local deps = {}
+	for _, v in pairs(self.depends_on or {}) do
+		table.insert(deps, v:display())
+	end
+
+	if #deps ~= 0 then
+		table.insert(nodes, tree.Node({ text = ident("depends_on") }, deps))
+	end
+
+	return tree.Node({ text = text(self.name) }, nodes)
 end
 
 function Recipe:format(padding)
