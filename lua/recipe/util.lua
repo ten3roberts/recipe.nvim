@@ -256,7 +256,7 @@ local remove_escape_codes = M.remove_escape_codes
 function M.curry_output(method, task)
 	local components = require("recipe.components")
 	local prev_line = ""
-	local on_output = components.collect_method(task.recipe.components, method)
+	local on_output = components.collect_method(task.recipe, method)
 
 	return function(_, lines)
 		on_output(task)

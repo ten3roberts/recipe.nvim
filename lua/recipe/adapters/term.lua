@@ -81,19 +81,15 @@ function M.acquire_focused_win(key, config, bufnr)
 	local win
 
 	if existing then
-		vim.notify("Existing terminal buffer" .. existing)
 		win = find_win(existing)
-		vim.notify("Found window: " .. vim.inspect(win))
 	end
 
 	if win then
-		vim.notify("Found open terminal window for " .. key)
 		-- Focus the window and buffer
 		api.nvim_set_current_win(win)
 		api.nvim_win_set_buf(win, bufnr)
 		return win
 	else
-		vim.notify("Opening new window for " .. key)
 		return M.open_win(config, bufnr)
 	end
 end
@@ -112,6 +108,7 @@ local TaskState = {
 ---@field restart fun(on_exit: fun(code: number): Task|nil): Task
 ---@field recipe Recipe
 ---@field data table<string, any>
+---@field env table<string, string>
 ---@field on_exit fun(task: Task, code: number)[]
 ---@field deferred_focus fun(task: Task)
 ---@field deps Task[]
@@ -150,6 +147,9 @@ function Task:focus(mode)
 			self.bufnr
 		)
 
+		-- Do this afterwards to be able to look up the old buffer
+		terminals[self.recipe.name] = self.bufnr
+
 		if config.opts.scroll_to_end then
 			util.scroll_to_end(win)
 		end
@@ -166,6 +166,7 @@ function Task:restart()
 	return self
 end
 
+---@type fun(): Task, number
 Task.join = async.wrap(Task.attach_callback, 2)
 
 ---@param recipe Recipe
@@ -178,10 +179,8 @@ function M.execute(recipe)
 	local key = recipe.name
 
 	-- Create a blank buffer for the terminal
-	local bufnr = api.nvim_create_buf(false, true)
+	local bufnr = api.nvim_create_buf(false, false)
 
-	-- Do this afterwards to be able to look up the old buffer
-	terminals[key] = bufnr
 	local env = vim.deepcopy(recipe.env) or {}
 	env.__type = "table"
 
@@ -193,12 +192,14 @@ function M.execute(recipe)
 		data = {},
 		deps = {},
 		on_exit = {},
+		env = env,
 	}, Task)
 
 	async.run(function()
 		--- Run dependencies
 
 		local deps = {}
+		local ok = true
 		local lib = require("recipe.lib")
 		for _, v in ipairs(recipe.depends_on or {}) do
 			vim.notify("Executing dependency: " .. v:fmt_cmd())
@@ -206,13 +207,22 @@ function M.execute(recipe)
 			local child = lib.spawn(v)
 			table.insert(task.deps, child)
 			table.insert(deps, function()
-				child:join()
+				local _, code = child:join()
+				if code ~= 0 then
+					ok = false
+				end
 			end)
 		end
 
 		-- Await all dependencies
 		if #deps > 0 then
 			async.util.join(deps)
+		end
+
+		if not ok then
+			task.state = TaskState.STOPPED
+			task.code = -1
+			return
 		end
 
 		task.deps = {}
@@ -233,7 +243,7 @@ function M.execute(recipe)
 			stdout_cleanup()
 			stderr_cleanup()
 
-			components.execute(recipe.components, "on_exit", task)
+			components.execute(recipe, "on_exit", task)
 
 			if code == 0 and config.auto_close and fn.bufloaded(bufnr) == 1 then
 				local win = find_win(bufnr)
@@ -275,7 +285,7 @@ function M.execute(recipe)
 		task.state = TaskState.RUNNING
 		task.jobnr = jobnr
 
-		components.execute(recipe.components, "on_start", task)
+		components.execute(recipe, "on_start", task)
 
 		if task.deferred_focus then
 			task.deferred_focus(task)

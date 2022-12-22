@@ -32,7 +32,7 @@ function M.execute(_, recipe, on_exit)
 			return
 		end
 
-		components.execute(recipe.components, "on_exit", task)
+		components.execute(recipe, "on_exit", task)
 
 		on_exit(code)
 	end
@@ -50,7 +50,7 @@ function M.execute(_, recipe, on_exit)
 		return
 	end
 
-	components.execute(recipe.components, "on_start", task)
+	components.execute(recipe, "on_start", task)
 	task.stop = function()
 		fn.jobstop(id)
 		fn.jobwait({ id }, 1000)

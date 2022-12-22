@@ -22,7 +22,7 @@ function M.setup(opts)
 	end
 
 	require("recipe.components.qf").setup()
-	require("recipe.components.depends_on").setup()
+	require("recipe.components.dap").setup()
 
 	au({ "BufWritePre" }, {
 		pattern = config.opts.recipes_file,
@@ -96,23 +96,11 @@ function M.make_recipe(opts)
 	end
 end
 
---- Execute an arbitrary command
----@param recipe Recipe
-function M.execute_async(recipe)
-	return lib.spawn(recipe)
-end
-
 ---Execute a recipe
 ---@param recipe Recipe
----@param callback fun(code: number)|nil
-M.execute = function(recipe, callback)
-	async.run(function()
-		M.execute_async(recipe)
-	end, function(code)
-		if callback then
-			callback(code)
-		end
-	end)
+---@return Task
+M.execute = function(recipe)
+	return lib.spawn(recipe)
 end
 
 ---@class Frecency

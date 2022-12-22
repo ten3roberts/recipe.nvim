@@ -2,9 +2,9 @@ local util = require("recipe.util")
 local components = {}
 
 ---@class Component
----@field on_start function(task: Task)|nil
----@field on_exit function(task: Task)|nil
----@field on_output function(task: Task, bufnr: number)|nil
+---@field on_start function(opts: any, task: Task)|nil
+---@field on_exit function(opts: any, task: Task)|nil
+---@field on_output function(opts: any, task: Task, bufnr: number)|nil
 local M = {}
 
 function M.register(name, component)
@@ -24,15 +24,18 @@ function M.get(name)
 	return v or {}
 end
 
----@param components table<string, any>
+---@param recipe Recipe
 ---@param method string
 ---@return fun(...)
-function M.collect_method(components, method)
+function M.collect_method(recipe, method)
 	local t = {}
-	for k, _ in pairs(components) do
+	for k, v in pairs(recipe.components) do
 		local comp = M.get(k)
-		if comp[method] then
-			t[#t + 1] = comp[method]
+		local m = comp[method]
+		if m then
+			t[#t + 1] = function(...)
+				m(v, ...)
+			end
 		end
 	end
 
@@ -43,11 +46,11 @@ function M.collect_method(components, method)
 	end
 end
 
-function M.execute(components, method, ...)
-	for k, _ in pairs(components) do
+function M.execute(recipe, method, ...)
+	for k, v in pairs(recipe.components) do
 		local comp = M.get(k)
 		if comp[method] then
-			comp[method](...)
+			comp[method](v, ...)
 		end
 	end
 end

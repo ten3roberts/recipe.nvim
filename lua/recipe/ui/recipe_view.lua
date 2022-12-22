@@ -41,18 +41,18 @@ function M:open_vsplit()
 	self:spawn():focus({ kind = "vsplit" })
 end
 
+local task_state_map = {
+	pending = "-",
+	running = "*",
+	stopped = "#",
+}
+
 function M:format()
 	local t = {}
 	local task = self.task
 
-	local task_map = {
-		pending = "",
-		running = "",
-		stopped = "",
-	}
-
 	if task then
-		table.insert(t, task_map[task.state] or "?")
+		table.insert(t, task_state_map[task.state] or "?")
 	else
 		table.insert(t, " ")
 	end
@@ -77,9 +77,9 @@ function M:quick_action()
 			end,
 		},
 		{
-			"open",
+			"open_smat",
 			function()
-				M:open()
+				M:open_smart()
 			end,
 		},
 		{

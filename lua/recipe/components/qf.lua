@@ -13,7 +13,7 @@ local qf = {}
 
 ---comment
 ---@param task Task
-function qf.on_output(task)
+function qf.on_output(_, task)
 	local qf = task.data.qf
 
 	local lines = api.nvim_buf_get_lines(task.bufnr, 0, -1, true)
@@ -48,7 +48,7 @@ function qf.on_output(task)
 	end
 end
 
-function qf.on_start(task)
+function qf.on_start(_, task)
 	task.data.qf = {
 		last_report = 0,
 		lines = {},
@@ -57,7 +57,7 @@ function qf.on_start(task)
 end
 
 ---@param task Task
-function qf.on_exit(task)
+function qf.on_exit(_, task)
 	local qf = task.data.qf
 	if qf.in_flight then
 		qf.in_flight:stop()
