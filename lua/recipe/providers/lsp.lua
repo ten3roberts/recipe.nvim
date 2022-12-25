@@ -1,5 +1,5 @@
 local async = require("plenary.async")
-local core = require("recipe.core")
+local Recipe = require("recipe.recipe")
 local provider = {
 	--- Cache results to persist across buffers
 	cached = {},
@@ -53,7 +53,7 @@ function provider.load(_)
 			vim.list_extend(cmd, v.args.cargoExtraArgs)
 			table.insert(cmd, "--")
 			vim.list_extend(cmd, v.args.executableArgs)
-			local recipe = core.Recipe:new({ cmd = cmd, cwd = v.args.workspaceRoot, adapter = "term", name = v.label })
+			local recipe = Recipe:new({ cmd = cmd, cwd = v.args.workspaceRoot, adapter = "term", name = v.label })
 			t[recipe.name] = recipe
 		end
 	end

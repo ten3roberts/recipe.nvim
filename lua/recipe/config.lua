@@ -12,7 +12,7 @@ M.opts = {
 	term = {
 		height = 0.7,
 		width = 0.5,
-		kind = "smart",
+		kind = "float",
 		border = "shadow",
 	},
 	scroll_to_end = true,

@@ -1,5 +1,5 @@
 local util = require("recipe.util")
-local core = require("recipe.core")
+local Recipe = require("recipe.recipe")
 ---@class RecipesProvider : Provider
 ---Provides recipes from the `recipes.json` file
 local provider = {
@@ -18,7 +18,7 @@ local function parse_targets(data)
 	for line in data:gmatch("[^\n]+") do
 		local target = string.match(line, "^([A-Za-z0-9-_]+):")
 		if target then
-			local recipe = core.Recipe:new({
+			local recipe = Recipe:new({
 				cmd = "make " .. target,
 				adapter = "build",
 				name = target,

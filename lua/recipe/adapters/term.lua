@@ -141,11 +141,13 @@ end
 ---@param mode TermConfig
 function Task:focus(mode)
 	local function f()
-		local win = M.acquire_focused_win(
-			self.recipe.name,
-			vim.tbl_extend("keep", mode, require("recipe.config").opts.term),
-			self.bufnr
-		)
+		if mode == true then
+			mode = require("recipe.config").opts.term
+		else
+			mode = vim.tbl_extend("keep", mode, require("recipe.config").opts.term)
+		end
+
+		local win = M.acquire_focused_win(self.recipe.name, mode, self.bufnr)
 
 		-- Do this afterwards to be able to look up the old buffer
 		terminals[self.recipe.name] = self.bufnr
@@ -219,19 +221,6 @@ function M.execute(recipe)
 			async.util.join(deps)
 		end
 
-		if not ok then
-			task.state = TaskState.STOPPED
-			task.code = -1
-			return
-		end
-
-		task.deps = {}
-
-		if config.opts.dotenv then
-			local denv = require("recipe.dotenv").load(config.opts.dotenv)
-			env = vim.tbl_extend("keep", env, denv)
-		end
-
 		local on_stdout, stdout_cleanup = util.curry_output("on_output", task)
 		local on_stderr, stderr_cleanup = util.curry_output("on_output", task)
 
@@ -257,10 +246,21 @@ function M.execute(recipe)
 			end
 		end
 
+		if not ok then
+			on_exit(nil, -1)
+			return
+		end
+
+		task.deps = {}
+
+		if config.opts.dotenv then
+			local denv = require("recipe.dotenv").load(config.opts.dotenv)
+			env = vim.tbl_extend("keep", env, denv)
+		end
+
 		if vim.fn.isdirectory(recipe.cwd) ~= 1 then
 			util.error("No such directory: " .. vim.inspect(recipe.cwd))
-			task.state = TaskState.STOPPED
-			task.code = -1
+			on_exit(nil, -1)
 			return
 		end
 
@@ -277,8 +277,7 @@ function M.execute(recipe)
 
 		if jobnr <= 0 then
 			util.error("Failed to run command: " .. recipe:fmt_cmd())
-			task.state = TaskState.STOPPED
-			task.code = -1
+			on_exit(nil, -1)
 			return
 		end
 

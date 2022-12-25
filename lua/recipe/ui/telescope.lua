@@ -10,17 +10,6 @@ local lib = require("recipe.lib")
 
 local M = {}
 
-local function collapse_all_nodes(tree)
-	local expanded = get_expanded_nodes(tree)
-	for _, id in ipairs(expanded) do
-		local node = tree:get_node(id)
-		node:collapse(id)
-	end
-	-- If you want to expand the root
-	-- local root = tree:get_nodes()[1]
-	-- root:expand()
-end
-
 local function new_previewer()
 	local NuiTree = require("nui.tree")
 
@@ -52,13 +41,6 @@ local function new_previewer()
 	return previewer
 end
 
----@param v RecipeView
-local function score(v, now)
-	local last_use = lib.last_used[v.recipe.name] or 0
-
-	return (v.task and 10 or 1) / (now - last_use)
-end
-
 local RecipeView = require("recipe.ui.recipe_view")
 
 function M.recipe_action(method, close)
@@ -81,6 +63,7 @@ end
 
 M.actions = {
 	open_smart = M.recipe_action("open_smart", true),
+	open = M.recipe_action("open", true),
 	open_split = M.recipe_action("open_split", true),
 	open_vsplit = M.recipe_action("open_vsplit", true),
 	open_float = M.recipe_action("open_float", true),
@@ -99,14 +82,14 @@ function M.pick(opts)
 	for _, recipe in pairs(recipes) do
 		local task = tasks[recipe.name]
 		if not recipe.hidden or task then
-			table.insert(t, RecipeView.new(recipe, task))
+			table.insert(t, RecipeView:new(recipe, task))
 		end
 	end
 
 	local now = vim.loop.hrtime() / 1e9
 
 	table.sort(t, function(a, b)
-		return score(a, now) > score(b, now)
+		return lib.score(a.recipe, a.task, now) > lib.score(b.recipe, b.task, now)
 	end)
 
 	pickers
@@ -128,7 +111,7 @@ function M.pick(opts)
 			}),
 			sorter = conf.generic_sorter(opts),
 			attach_mappings = function(_, map)
-				actions.select_default:replace(M.actions.open_smart)
+				actions.select_default:replace(M.actions.open)
 				actions.select_horizontal:replace(M.actions.open_split)
 				actions.select_vertical:replace(M.actions.open_vsplit)
 				actions.select_tab:replace(M.actions.spawn)

@@ -1,5 +1,5 @@
 local util = require("recipe.util")
-local core = require("recipe.core")
+local Recipe = require("recipe.recipe")
 
 ---Provides recipes from the `recipes.json` file
 ---@class RecipesProvider : Provider
@@ -42,8 +42,8 @@ local function parse_recipes(data, path)
 				end
 
 				-- Try parse it
-				if not dep then
-					local value = json[v]
+				local value = json[v]
+				if not dep and value then
 					local r, err = parse_recipe(v, value)
 
 					if r then
@@ -83,7 +83,7 @@ local function parse_recipes(data, path)
 		recipe.components = value.components
 		recipe.priority = value.priority
 
-		return core.Recipe:new(recipe)
+		return Recipe:new(recipe)
 	end
 
 	for key, value in pairs(json) do

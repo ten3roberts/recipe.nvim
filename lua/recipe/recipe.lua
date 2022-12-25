@@ -116,13 +116,8 @@ function Recipe:format(padding)
 	return string.format("%s%s - %s %s", self.name, padding, self.source, cmd)
 end
 
-function Recipe:has_component(type)
-	return self.components[type] ~= nil
+function Recipe:has_component(kind)
+	return self.components[kind] ~= nil
 end
 
-return {
-	Recipe = Recipe,
-	components = {
-		Reset = true,
-	},
-}
+return Recipe

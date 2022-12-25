@@ -4,7 +4,7 @@
 local M = {}
 M.__index = M
 
-function M.new(recipe, task)
+function M:new(recipe, task)
 	return setmetatable({ recipe = recipe, task = task }, M)
 end
 
@@ -24,9 +24,13 @@ function M:stop()
 	end
 end
 
+function M:open()
+	self:spawn():focus(true)
+end
+
 ---Focus a running recipe
 function M:open_smart()
-	self:spawn():focus({})
+	self:spawn():focus({ kind = "smart" })
 end
 
 function M:open_float()

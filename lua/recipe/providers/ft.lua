@@ -1,7 +1,6 @@
 ---@class FtProvider: Provider
 local provider = {}
-local core = require("recipe.core")
-local Recipe = core.Recipe
+local Recipe = require("recipe.recipe")
 
 local M = {
 	filetypes = {},

@@ -7,7 +7,6 @@ local util = require("recipe.util")
 
 local M = {}
 
-local async = require("plenary.async")
 function M.format_time(ms)
 	local d, h, m, s = 0, 0, 0, 0
 	d = math.floor(ms / 86400000)
@@ -44,6 +43,13 @@ local tasks = {}
 
 local last_used = {}
 M.last_used = last_used
+
+---@param v RecipeView
+function M.score(recipe, task, now)
+	local last_use = last_used[recipe.name] or 0
+
+	return (task and 10 or 1) / (now - last_use)
+end
 
 ---Spawn a new task using the provided recipe
 ---This executes the task directly without regard for dependencies

@@ -5,7 +5,7 @@ local lib = require("recipe.lib")
 local config = require("recipe.config")
 
 local M = {
-	Recipe = require("recipe.core").Recipe,
+	Recipe = require("recipe.recipe"),
 }
 
 -- local modified_in_vim = {}
@@ -70,6 +70,8 @@ function M.load_cb(cb)
 end
 
 ---Executes a recipe by name
+---@param name string
+---@param open TermConfig|boolean|nil
 function M.bake(name, open)
 	M.load_cb(function(recipes)
 		local recipe = recipes[name]
@@ -83,17 +85,18 @@ function M.bake(name, open)
 end
 
 function M.make_recipe(opts)
-	local core = require("recipe.core")
+	local Recipe = require("recipe.recipe")
 
 	if type(opts) == "string" then
-		return core.Recipe:new({ cmd = opts })
+		return Recipe:new({ cmd = opts })
 	else
-		return core.Recipe:new(opts)
+		return Recipe:new(opts)
 	end
 end
 
 ---Execute a recipe
 ---@param recipe Recipe
+---@param open TermConfig|boolean|nil
 ---@return Task
 M.execute = function(recipe, open)
 	local task = lib.spawn(recipe)
@@ -189,18 +192,28 @@ end
 
 local __recipes = {}
 function M.complete(lead, _, _)
-	vim.notify("Complete")
-	M.load_cb(function(r)
-		__recipes = r
+	providers.load_callback(1000, function(v)
+		__recipes = v
 	end)
+
+	vim.notify("Complete: " .. lead)
 
 	local t = {}
 
-	for _, k in ipairs(order(__recipes)) do
-		if k[1]:find(lead) then
-			t[#t + 1] = k[1]
+	for k, _ in pairs(__recipes) do
+		if k:find(lead) then
+			print("k: ", k, "lead: ", lead)
+			table.insert(t, k)
 		end
 	end
+
+	local now = vim.loop.hrtime() / 1e9
+
+	table.sort(t, function(a, b)
+		return lib.score(a, nil, now) > lib.score(b, nil, now)
+	end)
+
+	print("t: ", vim.inspect(t))
 
 	return t
 end
