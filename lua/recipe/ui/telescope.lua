@@ -79,10 +79,11 @@ function M.pick(opts)
 	local tasks = lib.get_tasks()
 
 	local t = {}
-	for _, recipe in pairs(recipes) do
+
+	for key, recipe in pairs(recipes) do
 		local task = tasks[recipe.name]
 		if not recipe.hidden or task then
-			table.insert(t, RecipeView:new(recipe, task))
+			table.insert(t, RecipeView:new(key, recipe, task))
 		end
 	end
 
@@ -105,7 +106,7 @@ function M.pick(opts)
 					return {
 						value = entry,
 						display = fmt,
-						ordinal = entry.recipe.name .. " " .. entry.recipe:fmt_cmd(),
+						ordinal = entry.key .. " " .. entry.recipe:fmt_cmd(),
 					}
 				end,
 			}),

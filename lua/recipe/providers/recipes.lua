@@ -20,6 +20,37 @@ local function parse_recipes(data, path)
 	local in_progress = {}
 
 	local function parse_recipe(key, value)
+		if type(value) == "string" then
+			local recipe = recipes[value]
+
+			-- Already parsed and loaded
+			if recipe == in_progress then
+				return nil, "Cyclic dependency"
+			elseif recipe then
+				vim.notify("Found loaded recipe")
+				recipes[key] = recipe
+				return recipe
+			end
+
+			-- Not loaded yet
+
+			-- Try parse it
+			local j = json[value]
+			if not j then
+				return nil, "Unresolved dependency: " .. value
+			end
+
+			local recipe, err = parse_recipe(value, j)
+
+			if not recipe then
+				return nil, "Failed to parse dependency:\n" .. err
+			end
+
+			--- Insert the alias name as well
+			recipes[key] = recipe
+			return recipe
+		end
+
 		local recipe = {
 			name = key,
 			source = vim.fn.fnamemodify(path, ":p:."),
@@ -35,45 +66,23 @@ local function parse_recipes(data, path)
 		-- Resolve dependencies
 		for i, v in ipairs(value.depends_on or value.dependencies or {}) do
 			if type(v) == "string" then
-				local dep = recipes[v]
-
-				if dep == in_progress then
-					return nil, "Cyclic dependency"
-				end
-
-				-- Try parse it
-				local value = json[v]
-				if not dep and value then
-					local r, err = parse_recipe(v, value)
-
-					if r then
-						recipes[v] = r
-					else
-						return nil, "Failed to parse dependency:\n" .. err
-					end
-
-					dep = r
-				end
-
+				local dep, err = parse_recipe(v, v)
 				if not dep then
-					print("Recipes: ", vim.inspect(recipes))
-					return nil, "Unresolved dependency: " .. v
+					return nil, "Failed to parse dependency:\n" .. err
 				end
 
 				table.insert(recipe.depends_on, dep)
-			else
-				if type(v) == "table" then
-					local dep, err = parse_recipe(key .. ":dep." .. i, v)
+			elseif type(v) == "table" then
+				-- Anonymous recipe
+				local dep, err = parse_recipe(key .. ":dep." .. i, v)
 
-					if not dep then
-						return nil, "Failed to parse dependency:\n" .. err
-					end
-
-					dep.hidden = true
-					recipes[dep.name] = dep
-
-					table.insert(recipe.depends_on, dep)
+				if not dep then
+					return nil, "Failed to parse dependency:\n" .. err
 				end
+
+				dep.hidden = true
+
+				table.insert(recipe.depends_on, dep)
 			end
 		end
 
@@ -83,19 +92,18 @@ local function parse_recipes(data, path)
 		recipe.components = value.components
 		recipe.priority = value.priority
 
-		return Recipe:new(recipe)
+		local recipe = Recipe:new(recipe)
+		recipes[key] = recipe
+		return recipe
 	end
 
 	for key, value in pairs(json) do
-		if not recipes[key] then
-			recipes[key] = in_progress
-			local recipe, err = parse_recipe(key, value)
-			if recipe then
-				recipes[key] = recipe
-			else
-				util.error("Failed to parse recipe: " .. key .. "\n" .. err)
-				recipes[key] = nil
-			end
+		recipes[key] = in_progress
+		local recipe, err = parse_recipe(key, value)
+
+		if not recipe then
+			util.error("Failed to parse recipe: " .. key .. "\n" .. err)
+			recipes[key] = nil
 		end
 	end
 

@@ -99,7 +99,7 @@ end
 ---@param open TermConfig|boolean|nil
 ---@return Task
 M.execute = function(recipe, open)
-	local task = lib.spawn(recipe)
+	local task = lib.spawn(M.Recipe:new(recipe))
 	if open then
 		task:focus(open)
 	end

@@ -28,7 +28,6 @@ local function get_tree_nodes(tree, max_depth)
 end
 
 function M.expand_tree(tree, max_depth)
-	print("Expanding tree: ", tree)
 	local nodes = get_tree_nodes(tree, max_depth)
 	for _, node in ipairs(nodes) do
 		node:expand()

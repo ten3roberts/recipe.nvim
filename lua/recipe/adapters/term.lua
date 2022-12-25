@@ -138,13 +138,13 @@ function Task:stop()
 	end
 end
 
----@param mode TermConfig
+---@param mode TermConfig|boolean|nil
 function Task:focus(mode)
 	local function f()
 		if mode == true then
 			mode = require("recipe.config").opts.term
 		else
-			mode = vim.tbl_extend("keep", mode, require("recipe.config").opts.term)
+			mode = vim.tbl_extend("keep", mode or {}, require("recipe.config").opts.term)
 		end
 
 		local win = M.acquire_focused_win(self.recipe.name, mode, self.bufnr)

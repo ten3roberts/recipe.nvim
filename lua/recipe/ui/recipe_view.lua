@@ -1,11 +1,12 @@
 ---@class RecipeView
 ---@field recipe Recipe
 ---@field task Task|nil
+---@field key string
 local M = {}
 M.__index = M
 
-function M:new(recipe, task)
-	return setmetatable({ recipe = recipe, task = task }, M)
+function M:new(key, recipe, task)
+	return setmetatable({ key = key, recipe = recipe, task = task }, M)
 end
 
 ---@return Task
@@ -61,7 +62,7 @@ function M:format()
 		table.insert(t, " ")
 	end
 
-	table.insert(t, self.recipe:format(30))
+	table.insert(t, self.recipe:format(self.key, 30))
 
 	return table.concat(t, " ")
 end

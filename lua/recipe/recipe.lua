@@ -109,11 +109,11 @@ function Recipe:display()
 	return tree.Node({ text = text(self.name) }, nodes)
 end
 
-function Recipe:format(padding)
+function Recipe:format(key, padding)
 	local cmd = self:fmt_cmd()
 	local padding = string.rep(" ", math.max(padding - #self.name, 0))
 
-	return string.format("%s%s - %s %s", self.name, padding, self.source, cmd)
+	return string.format("%s%s - %s %s", key, padding, self.source, cmd)
 end
 
 function Recipe:has_component(kind)
