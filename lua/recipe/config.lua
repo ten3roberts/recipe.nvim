@@ -10,10 +10,10 @@ local util = require("recipe.util")
 M.opts = {
 	---@class TermConfig
 	term = {
-		height = 0.7,
-		width = 0.5,
-		kind = "float",
-		border = "shadow",
+		height = 24,
+		width = 80,
+		kind = "smart",
+		border = "none",
 	},
 	scroll_to_end = true,
 	recipes_file = "recipes.json",
