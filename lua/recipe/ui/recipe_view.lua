@@ -26,7 +26,7 @@ function M:stop()
 end
 
 function M:open()
-	self:spawn():focus(true)
+	self:spawn():focus({})
 end
 
 ---Focus a running recipe

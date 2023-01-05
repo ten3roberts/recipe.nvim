@@ -96,7 +96,7 @@ end
 
 ---Execute a recipe
 ---@param recipe Recipe
----@param open TermConfig|boolean|nil
+---@param open TermConfig|nil
 ---@return Task
 M.execute = function(recipe, open)
 	local task = lib.spawn(M.Recipe:new(recipe))
