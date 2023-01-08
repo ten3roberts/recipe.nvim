@@ -36,11 +36,13 @@ function qf.on_output(_, task)
 			M.opts.throttle,
 			0,
 			vim.schedule_wrap(function()
-				timer:stop()
-				timer:close()
-				qf.in_flight = nil
+				if qf.in_flight then
+					timer:stop()
+					timer:close()
 
-				write_qf()
+					qf.in_flight = nil
+					write_qf()
+				end
 			end)
 		)
 
@@ -62,6 +64,7 @@ function qf.on_exit(_, task)
 	if qf.in_flight then
 		qf.in_flight:stop()
 		qf.in_flight:close()
+
 		qf.in_flight = nil
 	end
 

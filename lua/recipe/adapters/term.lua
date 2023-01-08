@@ -228,8 +228,6 @@ function M.execute(recipe)
 			stdout_cleanup()
 			stderr_cleanup()
 
-			components.execute(recipe, "on_exit", task)
-
 			if code == 0 and config.auto_close and fn.bufloaded(bufnr) == 1 then
 				local win = find_win(bufnr)
 				if win and api.nvim_win_is_valid(win) then
@@ -281,6 +279,9 @@ function M.execute(recipe)
 		task.jobnr = jobnr
 
 		components.execute(recipe, "on_start", task)
+		task:attach_callback(function()
+			components.execute(recipe, "on_exit", task)
+		end)
 
 		if task.deferred_focus then
 			task.deferred_focus(task)
