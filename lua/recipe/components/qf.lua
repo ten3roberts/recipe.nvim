@@ -11,65 +11,34 @@ local quickfix = require("recipe.quickfix")
 ---@type Component
 local qf = {}
 
+---@param _ any
+---@param task Task
+local function parse(_, task, open)
+	local lines = task:get_output()
+	qf.lock = quickfix.set(qf.lock, task.recipe, lines, open)
+end
+
 ---comment
 ---@param task Task
-function qf.on_output(_, task)
+function qf.on_output(opts, task)
 	local qf = task.data.qf
 
-	local lines = api.nvim_buf_get_lines(task.bufnr, 0, -1, true)
-
-	local cur = vim.loop.hrtime()
-	local function write_qf()
-		qf.lock = quickfix.set(qf.lock, task.recipe, lines, false)
-		qf.last_report = vim.loop.hrtime()
-	end
-
-	if qf.in_flight then
-		return
-	end
-
-	if (cur - qf.last_report) / 1e6 > M.opts.throttle then
-		write_qf()
-	else
-		local timer = vim.loop.new_timer()
-		timer:start(
-			M.opts.throttle,
-			0,
-			vim.schedule_wrap(function()
-				if qf.in_flight then
-					timer:stop()
-					timer:close()
-
-					qf.in_flight = nil
-					write_qf()
-				end
-			end)
-		)
-
-		qf.in_flight = timer
-	end
+	qf.throttled_parse(opts, task, false)
 end
+local util = require("recipe.util")
 
 function qf.on_start(_, task)
 	task.data.qf = {
-		last_report = 0,
-		lines = {},
+		throttled_parse = util.throttle(parse, M.opts.throttle),
 		lock = nil,
 	}
 end
 
 ---@param task Task
-function qf.on_exit(_, task)
+function qf.on_exit(opts, task)
 	local qf = task.data.qf
-	if qf.in_flight then
-		qf.in_flight:stop()
-		qf.in_flight:close()
 
-		qf.in_flight = nil
-	end
-
-	local lines = api.nvim_buf_get_lines(task.bufnr, 0, -1, true)
-	qf.lock = quickfix.set(qf.lock, task.recipe, lines)
+	parse(opts, task, nil)
 	quickfix.release_lock(qf.lock)
 end
 

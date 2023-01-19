@@ -2,15 +2,21 @@ local M = {}
 local util = require("recipe.util")
 
 local dap = {
+	---@param opts any
+	---@param task Task
 	on_exit = function(opts, task)
 		if task.code ~= 0 then
 			return
 		end
 
+		if opts.close_task ~= false then
+			task:close()
+		end
+
 		local conf = {
 			type = opts.adapter or vim.o.ft,
 			request = "launch",
-			name = "Recipe " .. task.recipe.name,
+			name = "Recipe " .. task.recipe.key,
 			program = opts.program,
 			args = opts.args,
 			justMyCode = opts.justMyCode,

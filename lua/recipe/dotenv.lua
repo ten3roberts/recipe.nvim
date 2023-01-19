@@ -90,10 +90,6 @@ local function tok_string_end(data, prev)
 	end
 end
 
----@class Token
----@field data string
----@field kind string
-
 ---@param data string
 ---@return Token|nil
 ---@return string|nil
@@ -307,6 +303,10 @@ function M.load(path)
 		end
 
 		local env = parse(tokens)
+		if not env then
+			util.error("Failed to load env from " .. path)
+			return {}
+		end
 
 		local t = {}
 		for key, value in pairs(env) do

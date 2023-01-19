@@ -52,7 +52,7 @@ local function parse_recipes(data, path)
 		end
 
 		local recipe = {
-			name = key,
+			key = key,
 			source = vim.fn.fnamemodify(path, ":p:."),
 			depends_on = {},
 		}

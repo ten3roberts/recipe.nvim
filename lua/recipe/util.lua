@@ -2,6 +2,37 @@ local M = {}
 local async = require("plenary.async")
 local fn = vim.fn
 
+function M.format_time(ms)
+	local d, h, m, s = 0, 0, 0, 0
+	d = math.floor(ms / 86400000)
+	ms = ms % 86400000
+
+	h = math.floor(ms / 3600000)
+	ms = ms % 3600000
+
+	m = math.floor(ms / 60000)
+	ms = ms % 60000
+
+	s = math.floor(ms / 1000)
+	ms = math.floor(ms % 1000)
+
+	local t = {}
+	if d > 0 then
+		t[#t + 1] = d .. "d"
+	end
+	if h > 0 then
+		t[#t + 1] = h .. "h"
+	end
+	if m > 0 then
+		t[#t + 1] = m .. "m"
+	end
+	if s > 0 then
+		t[#t + 1] = s .. "s"
+	end
+
+	return table.concat(t, " ")
+end
+
 function M.get_compiler(cmd)
 	local rtp = vim.o.rtp
 	for part in cmd:gmatch("%w*") do
@@ -288,6 +319,97 @@ function M.scroll_to_end(win)
 		end
 	end
 	vim.api.nvim_win_set_cursor(win, { lnum, vim.api.nvim_strwidth(last_line) })
+end
+
+---@class Location
+---@field bufnr number
+---@field lnum number
+---@field col number
+
+---@param a Position
+---@param b Position
+---@return number
+function M.compare_pos(a, b)
+	if a.bufnr < b.bufnr then
+		return -1
+	end
+	if a.bufnr > b.bufnr then
+		return 1
+	end
+
+	if a.lnum < b.lnum then
+		return -1
+	end
+	if a.lnum > b.lnum then
+		return 1
+	end
+
+	if a.col < b.col then
+		return -1
+	end
+	if a.col > b.col then
+		return 1
+	end
+
+	return 0
+end
+
+--- Returns the cursor position
+---@return Location
+function M.get_location()
+	local pos = fn.getpos(".")
+
+	return {
+		bufnr = vim.api.nvim_get_current_buf(),
+		lnum = pos[2],
+		col = pos[3],
+	}
+end
+
+---Throttle a function using tail calling
+function M.throttle(f, timeout)
+	local last_call = 0
+
+	local timer
+
+	return function(...)
+		-- Make sure to stop any scheduled timers
+		if timer then
+			timer:stop()
+		end
+
+		local rem = timeout - (vim.loop.now() - last_call)
+		-- Schedule a tail call
+		if rem > 0 then
+			-- Reuse timer
+			if not timer then
+				timer = vim.loop.new_timer()
+			end
+
+			local args = { ... }
+			timer:start(
+				rem,
+				0,
+				vim.schedule_wrap(function()
+					timer:stop()
+					timer:close()
+					timer = nil
+
+					-- Reset here to ensure timeout between the execution of the
+					-- tail call, and not the last call to throttle
+
+					-- If it was reset in the throttle call, it could be a shorter
+					-- interval between calls to f
+					last_call = vim.loop.now()
+
+					f(unpack(args))
+				end)
+			)
+		else
+			last_call = vim.loop.now()
+			f(...)
+		end
+	end
 end
 
 return M

@@ -1,5 +1,5 @@
----@alias RecipeStore table<string, Recipe>
 local util = require("recipe.util")
+---@alias RecipeStore table<string, Recipe>
 
 ---@class Recipe
 ---@field cmd string|string[]
@@ -7,34 +7,46 @@ local util = require("recipe.util")
 ---@field cwd string
 ---@field env table<string, string>
 ---@field source string
----@field name string
+---@field key string
 ---@field components table<string, any>
 ---@field depends_on Recipe[]
 ---@field priority number
+---@field location Location
 local Recipe = {}
-
 Recipe.__index = Recipe
+
 local config = require("recipe.config")
 
 --- Creates a new recipe
 ---@return Recipe
 function Recipe:new(o)
-	o.components = o.components or {}
+	local t = {}
+	t.components = o.components or {}
 
 	for k, v in pairs(config.opts.default_components) do
-		if o.components[k] == nil then
-			o.components[k] = v
+		if t.components[k] == nil then
+			t.components[k] = v
 		end
 	end
 
-	if o.name == nil then
-		o.name = (type(o.cmd) == "string" and o.cmd or table.concat(o.cmd, " ")) or util.random_name()
+	if o.key == nil then
+		o.key = (type(o.cmd) == "string" and o.cmd or table.concat(o.cmd, " ")) or util.random_name()
+	end
+	t.source = o.source
+	t.env = o.env
+	t.hidden = o.hidden
+	t.cmd = o.cmd
+	t.key = o.key
+	t.location = o.location
+
+	t.depends_on = {}
+	for _, dep in ipairs(o.depends_on or {}) do
+		table.insert(t.depends_on, Recipe:new(dep))
 	end
 
-	o.cwd = o.cwd or vim.fn.getcwd()
-	o.priority = o.priority or 1000
-
-	return setmetatable(o, self)
+	t.cwd = o.cwd or vim.fn.getcwd()
+	t.priority = o.priority or 1000
+	return setmetatable(t, self)
 end
 
 ---Adds a new component to the recipe
@@ -53,7 +65,7 @@ function Recipe:fmt_cmd()
 	elseif type(cmd) == "string" then
 		return cmd
 	else
-		error("Invalid type")
+		error("Invalid type of cmd")
 	end
 end
 local line = require("nui.line")
@@ -85,13 +97,25 @@ function Recipe:display_cmd()
 	return line
 end
 
-function Recipe:display()
-	local function ident(name)
-		return text(name, "Identifier")
-	end
+local function ident(name)
+	return text(name, "Identifier")
+end
 
+local function field(name, value)
+	return line({ ident(name), text(": "), text(value) })
+end
+
+local function display_location(location)
+	return {
+		tree.Node({ text = field("bufnr", text(vim.fn.bufname(location.bufnr) or "no buffer")) }, {}),
+		tree.Node({ text = field("lnum", tostring(location.lnum)) }, {}),
+		tree.Node({ text = field("col", tostring(location.col)) }, {}),
+	}
+end
+
+function Recipe:display()
 	local nodes = {
-		tree.Node({ text = line({ ident("name"), text(": "), text(self.name, "String") }) }, {}),
+		tree.Node({ text = line({ ident("name"), text(": "), text(self.key, "String") }) }, {}),
 		tree.Node({ text = self:display_cmd() }, {}),
 		tree.Node({ text = line({ ident("source"), text(": "), text(self.source, "String") }) }, {}),
 		tree.Node({ text = line({ ident("cwd"), text(": "), text(self.cwd, "String") }) }, {}),
@@ -106,12 +130,16 @@ function Recipe:display()
 		table.insert(nodes, tree.Node({ text = ident("depends_on") }, deps))
 	end
 
-	return tree.Node({ text = text(self.name) }, nodes)
+	if self.location then
+		table.insert(nodes, tree.Node({ text = ident("location") }, display_location(self.location)))
+	end
+
+	return tree.Node({ text = text(self.key) }, nodes)
 end
 
 function Recipe:format(key, padding)
 	local cmd = self:fmt_cmd()
-	local padding = string.rep(" ", math.max(padding - #self.name, 0))
+	local padding = string.rep(" ", math.max(padding - #self.key, 0))
 
 	return string.format("%s%s - %s %s", key, padding, self.source, cmd)
 end

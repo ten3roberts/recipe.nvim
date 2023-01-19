@@ -15,7 +15,7 @@ local M = {}
 
 ---@return Lock|nil
 function M.acquire_lock()
-	local cur_time = uv.hrtime() / 1e9
+	local cur_time = uv.now()
 
 	if qf_lock == nil or cur_time > qf_lock.expiration then
 		local id = lock_id
@@ -46,7 +46,7 @@ end
 function M.set(lock, recipe, data, open)
 	--- Refresh lock
 
-	local cur_time = uv.hrtime() / 1e9
+	local cur_time = uv.now()
 	-- If lock is eol attempt to reaquire
 	if not lock or cur_time > lock.expiration then
 		M.release_lock(lock)

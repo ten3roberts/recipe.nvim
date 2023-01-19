@@ -7,105 +7,85 @@ local util = require("recipe.util")
 
 local M = {}
 
-function M.format_time(ms)
-	local d, h, m, s = 0, 0, 0, 0
-	d = math.floor(ms / 86400000)
-	ms = ms % 86400000
-
-	h = math.floor(ms / 3600000)
-	ms = ms % 3600000
-
-	m = math.floor(ms / 60000)
-	ms = ms % 60000
-
-	s = math.floor(ms / 1000)
-	ms = math.floor(ms % 1000)
-
-	local t = {}
-	if d > 0 then
-		t[#t + 1] = d .. "d"
-	end
-	if h > 0 then
-		t[#t + 1] = h .. "h"
-	end
-	if m > 0 then
-		t[#t + 1] = m .. "m"
-	end
-	if s > 0 then
-		t[#t + 1] = s .. "s"
-	end
-
-	return table.concat(t, " ")
-end
-
 ---@type { [string]: Task }
+---All currently running tasks
 local tasks = {}
+
+--- Stores recently run tasks
+---@type Task[]
+local recent_tasks = {}
 
 local last_used = {}
 M.last_used = last_used
 
----@param v RecipeView
-function M.score(recipe, task, now)
-	local last_use = last_used[recipe.name] or 0
+---@param task Task
+---@param current_loc Location
+function M.score(task, now, current_loc)
+	local score = 0
+	local loc = task.recipe.location
 
-	return (task and 10 or 1) / (now - last_use)
+	if task.last_use then
+		score = score + 1000000 / (now - task.last_use)
+	end
+
+	if loc and loc.bufnr == current_loc.bufnr then
+		local dist = math.max(math.abs(loc.lnum - current_loc.lnum), 1)
+		score = score + 1000 / dist
+	end
+
+	if task.state == "running" then
+		score = score + 10000
+	elseif task.state == "pending" then
+		score = score + 500
+	end
+
+	return score
 end
 
----Spawn a new task using the provided recipe
----This executes the task directly without regard for dependencies
+local function push_recent(task)
+	if #recent_tasks > 16 then
+		table.remove(recent_tasks, 0)
+	end
+
+	table.insert(recent_tasks, task)
+end
+
+--- Returns a list of tasks
+---@async
+function M.all_tasks()
+	return tasks
+end
+
+---Returns a list of recent tasks
+---@return Task[]
+function M.recent()
+	return recent_tasks
+end
+
+--- Loads recipes from providers into tasks
+---@return table<string, Task>
+function M.load(timeout)
+	local providers = require("recipe.providers")
+	local recipes = providers.load(timeout)
+	for k, v in pairs(recipes) do
+		M.insert_task(k, v)
+	end
+
+	return tasks
+end
+
 ---@param recipe Recipe
----@return Task
-function M.spawn(recipe)
-	if not recipe.components.plain and type(recipe.cmd) == "string" then
-		recipe.cmd = recipe.cmd:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)
-	end
-
-	local key = recipe.name
-	assert(type(key) == "string")
-	local start_time = uv.hrtime()
-
-	local function on_exit(_, code)
-		tasks[key] = nil
-
-		local duration = (uv.hrtime() - start_time) / 1000000
-
-		local level = (code == 0 and vim.log.levels.INFO) or vim.log.levels.ERROR
-
-		local state = code == 0 and "Success" or string.format("Failure %d", code)
-
-		local msg = string.format("%s: %q %s", state, key, M.format_time(duration))
-		vim.notify(msg, level)
-	end
-
-	for _, hook in ipairs(config.opts.hooks.pre) do
-		hook(recipe)
-	end
-
-	-- Check if task is already running
+function M.insert_task(key, recipe)
+	local key = key or recipe.key
 	local task = tasks[key]
-	-- Update env
-	if task then
-		vim.inspect("Found running task")
-		return task
-		-- local task = tasks[recipe.name]
-		-- if recipe.components.restart then
-		-- 	task = task.restart(on_exit)
-		-- else
-		-- 	table.insert(task.callbacks, callback or function(_) end)
-		-- 	task.focus()
-		-- 	return
-		-- end
-		-- Run the task as normal
+	if not task then
+		task = term:new(key, recipe)
 	end
-	vim.inspect("Running task")
-	last_used[key] = vim.loop.hrtime() / 1e9
 
-	--- Begin executing the task now
-	local task = term.execute(recipe)
-	task:attach_callback(on_exit)
+	-- Update the recipe
+	task.recipe = recipe
 
 	tasks[key] = task
-
 	return task
 end
 

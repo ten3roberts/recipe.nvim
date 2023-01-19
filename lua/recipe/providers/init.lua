@@ -52,7 +52,7 @@ function M.load_callback(timeout, cb)
 						v.source = def.name
 						v.priority = prio
 						-- Make sure name exists
-						v.name = v.name or k
+						v.key = v.key or k
 						result[k] = v
 					end
 				end

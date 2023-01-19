@@ -1,9 +1,6 @@
 local async = require("plenary.async")
 local Recipe = require("recipe.recipe")
-local provider = {
-	--- Cache results to persist across buffers
-	cached = {},
-}
+local provider = {}
 
 ---@param bufnr number
 ---@param cb fun(err: table|nil, result: table|nil)
@@ -44,7 +41,7 @@ end
 ---@return RecipeStore
 function provider.load(_)
 	local results = runnables(vim.api.nvim_get_current_buf())
-	local t = provider.cached
+	local t = {}
 
 	for _, v in ipairs(results or {}) do
 		if v.kind == "cargo" then
@@ -53,8 +50,30 @@ function provider.load(_)
 			vim.list_extend(cmd, v.args.cargoExtraArgs)
 			table.insert(cmd, "--")
 			vim.list_extend(cmd, v.args.executableArgs)
-			local recipe = Recipe:new({ cmd = cmd, cwd = v.args.workspaceRoot, adapter = "term", name = v.label })
-			t[recipe.name] = recipe
+
+			local loc
+
+			if v.location then
+				local bufnr = vim.uri_to_bufnr(v.location.targetUri)
+
+				if bufnr ~= -1 then
+					loc = {
+						lnum = v.location.targetRange.start.line,
+						col = v.location.targetRange.start.character,
+						bufnr = bufnr,
+					}
+				end
+			end
+
+			local recipe = Recipe:new({
+				cmd = cmd,
+				cwd = v.args.workspaceRoot,
+				adapter = "term",
+				name = v.label,
+				location = loc,
+			})
+
+			t[recipe.key] = recipe
 		end
 	end
 	return t

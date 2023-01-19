@@ -52,35 +52,40 @@ end
 M.stop_all = lib.stop_all
 
 local async = require("plenary.async")
-local providers = require("recipe.providers")
 function M.register(name, provider)
+	local providers = require("recipe.providers")
 	providers.register(name, provider)
 end
 
 ---@async
 ---Loads all recipes asynchronously
----@return RecipeStore
-function M.load()
-	return providers.load()
+---@return Tasks
+function M.load(timeout)
+	return lib.load(timeout)
 end
 
----@param cb fun(recipes: RecipeStore)
-function M.load_cb(cb)
-	async.run(M.load, cb)
+---@param cb fun(recipes: Tasks)
+function M.load_cb(timeout, cb)
+	async.run(function()
+		return M.load(timeout)
+	end, cb)
 end
 
 ---Executes a recipe by name
 ---@param name string
----@param open TermConfig|boolean|nil
+---@param open TermConfig|nil
 function M.bake(name, open)
-	M.load_cb(function(recipes)
-		local recipe = recipes[name]
+	M.load_cb(nil, function(tasks)
+		local task = tasks[name]
 
-		if recipe == nil then
+		if task == nil then
 			return util.error("No such recipe: " .. name)
 		end
 
-		M.execute(recipe, open)
+		task:spawn()
+		if open then
+			task:focus(open)
+		end
 	end)
 end
 
@@ -94,12 +99,14 @@ function M.make_recipe(opts)
 	end
 end
 
----Execute a recipe
----@param recipe Recipe
+---Execute a recipe or a description of a recipe
+---@param recipe Recipe|table
 ---@param open TermConfig|nil
 ---@return Task
 M.execute = function(recipe, open)
-	local task = lib.spawn(M.Recipe:new(recipe))
+	local task = lib.insert_task(nil, M.Recipe:new(recipe))
+
+	task:spawn()
 	if open then
 		task:focus(open)
 	end
@@ -114,43 +121,29 @@ end
 ---@type { [string]: Frecency }
 local recipe_frecency = {}
 
----@param recipe Recipe
-local function recipe_score(recipe, now)
-	local f = recipe_frecency[recipe.name] or { uses = 0, last_use = 0.0 }
-	local dur = now - f.last_use
-
-	return (f.uses + 1) / (dur + 1) * recipe.priority * (lib.get_task(recipe.name) and 200 or 100)
-end
-
----@param recipes table<string, Recipe>
-local function order(recipes)
+---@param tasks Tasks
+local function order(tasks)
 	-- Collect all
 	local t = {}
 
-	for _, v in pairs(recipes) do
-		t[v.name] = v
-	end
-
-	local tasks = lib.get_tasks()
 	for _, v in pairs(tasks) do
-		t[v.recipe.name] = v.recipe
+		table.insert(t, v)
 	end
 
-	local now = vim.loop.hrtime() / 1000000000
-	local all = {}
-	for _, v in pairs(t) do
-		table.insert(all, v)
-	end
-	table.sort(all, function(a, b)
-		return recipe_score(a, now) > recipe_score(b, now)
+	local now = vim.loop.now()
+
+	local loc = util.get_location()
+
+	table.sort(t, function(a, b)
+		return lib.score(a, now, loc) > lib.score(b, now, loc)
 	end)
 
-	return all
+	return t
 end
 
 function M.pick()
-	M.load_cb(function(recipes)
-		local items = order(recipes)
+	M.load_cb(1000, function(tasks)
+		local items = order(tasks)
 
 		if #items == 0 then
 			vim.notify("No recipes")
@@ -159,14 +152,14 @@ function M.pick()
 
 		local max_len = 0
 		for _, v in ipairs(items) do
-			max_len = math.max(#(v.name or ""), max_len)
+			max_len = math.max(#(v.recipe.key or ""), max_len)
 		end
 
 		local opts = {
-			format_item = function(recipe)
-				local pad = string.rep(" ", math.max(max_len - #(recipe.name or "")))
+			format_item = function(task)
+				local pad = string.rep(" ", math.max(max_len - #(task.recipe.key or "")))
 
-				return (lib.get_task(recipe.name) and "*" or " ") .. " " .. recipe:format(pad)
+				return (lib.get_task(task.recipe.key) and "*" or " ") .. " " .. task.recipe:format(pad)
 			end,
 		}
 
@@ -180,40 +173,35 @@ function M.pick()
 				return
 			end
 
-			local f = recipe_frecency[recipe.name] or { uses = 0, last_use = 0 }
+			local f = recipe_frecency[recipe.key] or { uses = 0, last_use = 0 }
 			f.uses = f.uses + 1
-			f.last_use = vim.loop.hrtime() / 1000000000
-			recipe_frecency[recipe.name] = f
+			f.last_use = vim.loop.now()
+			recipe_frecency[recipe.key] = f
 
-			M.execute(recipe)
+			M.execute(recipe, {})
 		end)
 	end)
 end
 
 local __recipes = {}
 function M.complete(lead, _, _)
-	providers.load_callback(1000, function(v)
+	M.load_cb(1000, function(v)
 		__recipes = v
 	end)
-
-	vim.notify("Complete: " .. lead)
 
 	local t = {}
 
 	for k, _ in pairs(__recipes) do
 		if k:find(lead) then
-			print("k: ", k, "lead: ", lead)
 			table.insert(t, k)
 		end
 	end
 
-	local now = vim.loop.hrtime() / 1e9
-
+	local now = vim.loop.now()
+	local loc = util.get_location()
 	table.sort(t, function(a, b)
-		return lib.score(a, nil, now) > lib.score(b, nil, now)
+		return lib.score(a, now, loc) > lib.score(b, now, loc)
 	end)
-
-	print("t: ", vim.inspect(t))
 
 	return t
 end

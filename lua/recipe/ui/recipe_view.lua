@@ -1,19 +1,17 @@
 ---@class RecipeView
----@field recipe Recipe
 ---@field task Task|nil
 ---@field key string
 local M = {}
 M.__index = M
 
-function M:new(key, recipe, task)
-	return setmetatable({ key = key, recipe = recipe, task = task }, M)
+function M:new(key, task)
+	return setmetatable({ key = key, task = task }, M)
 end
 
 ---@return Task
 function M:spawn()
-	if not self.task or self.task.state == "stopped" then
-		local lib = require("recipe.lib")
-		self.task = lib.spawn(self.recipe)
+	if self.task.state == "stopped" then
+		self.task:spawn()
 	end
 
 	return self.task

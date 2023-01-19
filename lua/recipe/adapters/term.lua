@@ -4,7 +4,6 @@ local util = require("recipe.util")
 local api = vim.api
 local fn = vim.fn
 local M = {}
-
 local components = require("recipe.components")
 
 ---Opens a new terminal
@@ -101,11 +100,13 @@ local TaskState = {
 	STOPPED = "stopped",
 }
 
----Represents a running task
+---@alias Tasks { [string]: Task }
+
+---Represents a task
 ---@class Task
+---@field key string
 ---@field bufnr number The buffer containing the process output
 ---@field jobnr number|nil
----@field restart fun(on_exit: fun(code: number): Task|nil): Task
 ---@field recipe Recipe
 ---@field data table<string, any>
 ---@field env table<string, string>
@@ -115,11 +116,13 @@ local TaskState = {
 ---@field state TaskState
 ---@field code number|nil
 ---@field open_mode TermConfig
+---@field last_use number|nil
 local Task = {}
 Task.__index = Task
 
 function Task:attach_callback(cb)
 	if self.state == TaskState.STOPPED then
+		vim.notify("attach_callback ready")
 		vim.schedule(function()
 			cb(self, self.code)
 		end)
@@ -138,22 +141,90 @@ function Task:stop()
 	end
 end
 
+function Task:get_output()
+	if self.bufnr and api.nvim_buf_is_valid(self.bufnr) then
+		return api.nvim_buf_get_lines(self.bufnr, 0, -1, true)
+	else
+		return {}
+	end
+end
+
+--- Creates a new task without running it
+function Task:new(key, recipe)
+	return setmetatable({
+		key = key,
+		recipe = recipe,
+		state = TaskState.STOPPED,
+		data = {},
+		deps = {},
+		on_exit = {},
+	}, self)
+end
+
+function Task:format()
+	local t = {}
+
+	local task_state_map = {
+		pending = "-",
+		running = "*",
+		stopped = " ",
+	}
+
+	table.insert(t, task_state_map[self.state] or "?")
+
+	table.insert(t, self.recipe:format(self.key, 30))
+
+	return table.concat(t, " ")
+end
+
+function Task:close()
+	if not self.bufnr then
+		return
+	end
+
+	local windows = vim.fn.win_findbuf(self.bufnr)
+
+	for _, window in ipairs(windows) do
+		api.nvim_win_close(window, true)
+	end
+end
+
+function Task:open()
+	self:spawn():focus({})
+end
+
+function Task:open_smart()
+	self:spawn():focus({ kind = "smart" })
+end
+
+function Task:open_float()
+	self:spawn():focus({ kind = "float" })
+end
+
+function Task:open_split()
+	self:spawn():focus({ kind = "split" })
+end
+
+function Task:open_vsplit()
+	self:spawn():focus({ kind = "vsplit" })
+end
+
 ---@param mode TermConfig
 function Task:focus(mode)
 	local function f()
 		mode = vim.tbl_extend("keep", mode, require("recipe.config").opts.term)
 
-		local win = M.acquire_focused_win(self.recipe.name, mode, self.bufnr)
+		local win = M.acquire_focused_win(self.recipe.key, mode, self.bufnr)
 
 		-- Do this afterwards to be able to look up the old buffer
-		terminals[self.recipe.name] = self.bufnr
+		terminals[self.recipe.key] = self.bufnr
 
 		if config.opts.scroll_to_end then
 			util.scroll_to_end(win)
 		end
 	end
 
-	if self.state ~= TaskState.PENDING then
+	if self.bufnr and self.state ~= TaskState.PENDING then
 		f()
 	else
 		self.deferred_focus = f
@@ -164,50 +235,48 @@ function Task:restart()
 	return self
 end
 
+Task._tostring = Task.format
+
 ---@type fun(): Task, number
 Task.join = async.wrap(Task.attach_callback, 2)
 
----@param recipe Recipe
----@return Task
 ---Starts executing the task
-function M.execute(recipe)
+function Task:spawn()
+	if self.state ~= TaskState.STOPPED then
+		return self
+	end
+
+	self.data = {}
+	self.deps = {}
+	self.state = TaskState.PENDING
 	---@type TermConfig
 	-- local term_config = vim.tbl_deep_extend("force", require("recipe.config").opts.term, {})
 
-	local key = recipe.name
+	local key = self.recipe.key
 
 	-- Create a blank buffer for the terminal
 	local bufnr = api.nvim_create_buf(false, false)
+	self.bufnr = bufnr
+	local recipe = self.recipe
 
-	local env = vim.deepcopy(recipe.env) or {}
+	local env = vim.deepcopy(self.recipe.env) or {}
 	env.__type = "table"
 
-	local task = setmetatable({
-		bufnr = bufnr,
-		jobnr = nil,
-		recipe = recipe,
-		state = TaskState.PENDING,
-		data = {},
-		deps = {},
-		on_exit = {},
-		env = env,
-	}, Task)
-
+	local uv = vim.loop
 	async.run(function()
 		--- Run dependencies
 
 		local deps = {}
-		local ok = true
+		local err
 		local lib = require("recipe.lib")
 		for _, v in ipairs(recipe.depends_on or {}) do
-			vim.notify("Executing dependency: " .. v:fmt_cmd())
+			local child = lib.insert_task(v.key, v):spawn()
 
-			local child = lib.spawn(v)
-			table.insert(task.deps, child)
+			table.insert(self.deps, child)
 			table.insert(deps, function()
 				local _, code = child:join()
 				if code ~= 0 then
-					ok = false
+					err = string.format("%s exited with code: %s", v.key, code)
 				end
 			end)
 		end
@@ -217,13 +286,14 @@ function M.execute(recipe)
 			async.util.join(deps)
 		end
 
-		local on_stdout, stdout_cleanup = util.curry_output("on_output", task)
-		local on_stderr, stderr_cleanup = util.curry_output("on_output", task)
+		local on_stdout, stdout_cleanup = util.curry_output("on_output", self)
+		local on_stderr, stderr_cleanup = util.curry_output("on_output", self)
 
+		local start_time = uv.now()
 		local function on_exit(_, code)
-			task.jobnr = nil
-			task.code = code
-			task.state = TaskState.STOPPED
+			self.jobnr = nil
+			self.code = code
+			self.state = TaskState.STOPPED
 
 			stdout_cleanup()
 			stderr_cleanup()
@@ -235,17 +305,29 @@ function M.execute(recipe)
 				end
 			end
 
-			for _, cb in ipairs(task.on_exit) do
-				cb(task, code)
+			local duration = (uv.now() - start_time)
+
+			local level = (code == 0 and vim.log.levels.INFO) or vim.log.levels.ERROR
+
+			local state = code == 0 and "Success" or string.format("Failure %d", code)
+
+			local msg = string.format("%s: %q %s", state, key, util.format_time(duration))
+			vim.notify(msg, level)
+
+			for _, cb in ipairs(self.on_exit) do
+				cb(self, code)
 			end
+
+			self.on_exit = {}
 		end
 
-		if not ok then
+		if err then
+			util.error("Failed to execute dependency: " .. err)
 			on_exit(nil, -1)
 			return
 		end
 
-		task.deps = {}
+		self.deps = {}
 
 		if config.opts.dotenv then
 			local denv = require("recipe.dotenv").load(config.opts.dotenv)
@@ -258,9 +340,18 @@ function M.execute(recipe)
 			return
 		end
 
+		for _, hook in ipairs(config.opts.hooks.pre) do
+			hook(recipe)
+		end
+
+		local cmd = self.recipe.cmd
+		if not recipe.components.plain and type(recipe.cmd) == "string" then
+			cmd = cmd:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)
+		end
+
 		local jobnr
-		vim.api.nvim_buf_call(task.bufnr, function()
-			jobnr = fn.termopen(recipe.cmd, {
+		vim.api.nvim_buf_call(self.bufnr, function()
+			jobnr = fn.termopen(cmd, {
 				cwd = recipe.cwd,
 				on_exit = vim.schedule_wrap(on_exit),
 				env = env,
@@ -275,20 +366,22 @@ function M.execute(recipe)
 			return
 		end
 
-		task.state = TaskState.RUNNING
-		task.jobnr = jobnr
+		self.last_use = start_time
+		self.state = TaskState.RUNNING
+		self.jobnr = jobnr
 
-		components.execute(recipe, "on_start", task)
-		task:attach_callback(function()
-			components.execute(recipe, "on_exit", task)
+		components.execute(recipe, "on_start", self)
+		self:attach_callback(function()
+			components.execute(recipe, "on_exit", self)
 		end)
 
-		if task.deferred_focus then
-			task.deferred_focus(task)
+		if self.deferred_focus then
+			self.deferred_focus(self)
+			self.deferred_focus = nil
 		end
 	end, function() end)
 
-	return task
+	return self
 end
 
-return M
+return Task
