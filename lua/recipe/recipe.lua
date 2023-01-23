@@ -32,7 +32,7 @@ function Recipe:new(o)
 	if o.key == nil then
 		o.key = (type(o.cmd) == "string" and o.cmd or table.concat(o.cmd, " ")) or util.random_name()
 	end
-	t.source = o.source
+	t.source = o.source or "user"
 	t.env = o.env
 	t.hidden = o.hidden
 	t.cmd = o.cmd
