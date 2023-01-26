@@ -80,7 +80,7 @@ function M.pick(opts)
 	local now = vim.loop.now()
 
 	local util = require("recipe.util")
-	local loc = util.get_location()
+	local loc = util.get_position()
 
 	for _, task in pairs(tasks) do
 		if not task.recipe.hidden then
@@ -91,10 +91,10 @@ function M.pick(opts)
 	local now = vim.loop.now()
 
 	local util = require("recipe.util")
-	local loc = util.get_location()
+	local pos = util.get_position()
 
 	table.sort(t, function(a, b)
-		return lib.score(a, now, loc) > lib.score(b, now, loc)
+		return lib.score(a, now, pos) > lib.score(b, now, pos)
 	end)
 
 	pickers

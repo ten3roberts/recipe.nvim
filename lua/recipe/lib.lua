@@ -19,8 +19,8 @@ local last_used = {}
 M.last_used = last_used
 
 ---@param task Task
----@param current_loc Location
-function M.score(task, now, current_loc)
+---@param pos Location
+function M.score(task, now, pos)
 	local score = 0
 	local loc = task.recipe.location
 
@@ -28,9 +28,9 @@ function M.score(task, now, current_loc)
 		score = score + 1000000 / (now - task.last_use)
 	end
 
-	if loc and loc.bufnr == current_loc.bufnr then
-		local dist = math.max(math.abs(loc.lnum - current_loc.lnum), 1)
-		score = score + 1000 / dist
+	local dist = task.recipe:distance_to(pos)
+	if dist then
+		score = score + 1000 / math.max(dist, 1)
 	end
 
 	if task.state == "running" then

@@ -51,16 +51,18 @@ function provider.load(_)
 			table.insert(cmd, "--")
 			vim.list_extend(cmd, v.args.executableArgs)
 
-			local loc
+			local location
 
 			if v.location then
 				local bufnr = vim.uri_to_bufnr(v.location.targetUri)
 
 				if bufnr ~= -1 then
-					loc = {
+					location = {
 						lnum = v.location.targetRange.start.line,
 						col = v.location.targetRange.start.character,
 						bufnr = bufnr,
+						end_lnum = v.location.targetRange["end"].line,
+						end_col = v.location.targetRange["end"].character,
 					}
 				end
 			end
@@ -69,8 +71,8 @@ function provider.load(_)
 				cmd = cmd,
 				cwd = v.args.workspaceRoot,
 				adapter = "term",
-				name = v.label,
-				location = loc,
+				key = v.label,
+				location = location,
 			})
 
 			t[recipe.key] = recipe

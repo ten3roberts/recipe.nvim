@@ -1,6 +1,12 @@
 local util = require("recipe.util")
 ---@alias RecipeStore table<string, Recipe>
 
+---@class Location
+---@field lnum number
+---@field col number
+---@field end_lnum number
+---@field end_col number
+
 ---@class Recipe
 ---@field cmd string|string[]
 ---@field hidden boolean
@@ -32,6 +38,7 @@ function Recipe:new(o)
 	if o.key == nil then
 		o.key = (type(o.cmd) == "string" and o.cmd or table.concat(o.cmd, " ")) or util.random_name()
 	end
+
 	t.source = o.source or "user"
 	t.env = o.env
 	t.hidden = o.hidden
@@ -57,6 +64,19 @@ function Recipe:add_component(type, value)
 	return self
 end
 
+---@param pos Position
+---@return number|nil
+function Recipe:distance_to(pos)
+	if not self.location or self.location.bufnr ~= pos.bufnr then
+		return nil
+	end
+
+	local to_start = self.location.lnum - pos.lnum
+	local to_end = pos.lnum - self.location.end_lnum
+	local dist = math.max(to_start, to_end)
+
+	return dist
+end
 ---@return string
 function Recipe:fmt_cmd()
 	local cmd = self.cmd
@@ -107,9 +127,15 @@ end
 
 local function display_location(location)
 	return {
-		tree.Node({ text = field("bufnr", text(vim.fn.bufname(location.bufnr) or "no buffer")) }, {}),
-		tree.Node({ text = field("lnum", tostring(location.lnum)) }, {}),
-		tree.Node({ text = field("col", tostring(location.col)) }, {}),
+		tree.Node({ text = ident("start") }, {
+			tree.Node({
+				text = field("bufnr", text(location.bufnr .. " " .. vim.fn.bufname(location.bufnr) or "<no buffer>")),
+			}, {}),
+			tree.Node({ text = field("lnum", tostring(location.lnum)) }, {}),
+			tree.Node({ text = field("col", tostring(location.col)) }, {}),
+			tree.Node({ text = field("end_lnum", tostring(location.end_lnum)) }, {}),
+			tree.Node({ text = field("end_col", tostring(location.end_col)) }, {}),
+		}),
 	}
 end
 

@@ -132,7 +132,7 @@ local function order(tasks)
 
 	local now = vim.loop.now()
 
-	local loc = util.get_location()
+	local loc = util.get_position()
 
 	table.sort(t, function(a, b)
 		return lib.score(a, now, loc) > lib.score(b, now, loc)
@@ -198,7 +198,7 @@ function M.complete(lead, _, _)
 	end
 
 	local now = vim.loop.now()
-	local loc = util.get_location()
+	local loc = util.get_position()
 	table.sort(t, function(a, b)
 		return lib.score(a, now, loc) > lib.score(b, now, loc)
 	end)

@@ -27,7 +27,6 @@ local function parse_recipes(data, path)
 			if recipe == in_progress then
 				return nil, "Cyclic dependency"
 			elseif recipe then
-				vim.notify("Found loaded recipe")
 				recipes[key] = recipe
 				return recipe
 			end

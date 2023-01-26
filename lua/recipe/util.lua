@@ -321,7 +321,7 @@ function M.scroll_to_end(win)
 	vim.api.nvim_win_set_cursor(win, { lnum, vim.api.nvim_strwidth(last_line) })
 end
 
----@class Location
+---@class Position
 ---@field bufnr number
 ---@field lnum number
 ---@field col number
@@ -355,8 +355,8 @@ function M.compare_pos(a, b)
 end
 
 --- Returns the cursor position
----@return Location
-function M.get_location()
+---@return Position
+function M.get_position()
 	local pos = fn.getpos(".")
 
 	return {
