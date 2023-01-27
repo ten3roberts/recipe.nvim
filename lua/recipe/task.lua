@@ -158,6 +158,7 @@ function Task:new(key, recipe)
 		data = {},
 		deps = {},
 		on_exit = {},
+		env = {},
 	}, self)
 end
 
@@ -172,7 +173,7 @@ function Task:format()
 
 	table.insert(t, task_state_map[self.state] or "?")
 
-	table.insert(t, self.recipe:format(self.key, 30))
+	table.insert(t, self.recipe:format(self.key, 50))
 
 	return table.concat(t, " ")
 end
@@ -209,10 +210,10 @@ function Task:open_vsplit()
 	self:spawn():focus({ kind = "vsplit" })
 end
 
----@param mode TermConfig
+---@param mode TermConfig|nil
 function Task:focus(mode)
 	local function f()
-		mode = vim.tbl_extend("keep", mode, require("recipe.config").opts.term)
+		mode = vim.tbl_extend("keep", mode or {}, require("recipe.config").opts.term)
 
 		local win = M.acquire_focused_win(self.recipe.key, mode, self.bufnr)
 
@@ -260,7 +261,9 @@ function Task:spawn()
 	local recipe = self.recipe
 
 	local env = vim.deepcopy(self.recipe.env) or {}
-	env.__type = "table"
+	if vim.tbl_count(env) == 0 then
+		env.__type = "table"
+	end
 
 	local uv = vim.loop
 	async.run(function()
@@ -333,6 +336,8 @@ function Task:spawn()
 			local denv = require("recipe.dotenv").load(config.opts.dotenv)
 			env = vim.tbl_extend("keep", env, denv)
 		end
+
+		self.env = env
 
 		if vim.fn.isdirectory(recipe.cwd) ~= 1 then
 			util.error("No such directory: " .. vim.inspect(recipe.cwd))

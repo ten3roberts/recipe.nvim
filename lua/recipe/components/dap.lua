@@ -20,7 +20,7 @@ local dap = {
 			program = opts.program,
 			args = opts.args,
 			justMyCode = opts.justMyCode,
-			env = opts.env,
+			env = vim.tbl_extend("keep", opts.env or {}, task.env),
 		}
 
 		local _, dap = pcall(require, "dap")

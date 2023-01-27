@@ -1,5 +1,4 @@
 local config = require("recipe.config")
-local term = require("recipe.adapters.term")
 local uv = vim.loop
 local fn = vim.fn
 
@@ -76,10 +75,11 @@ end
 
 ---@param recipe Recipe
 function M.insert_task(key, recipe)
+	local Task = require("recipe.task")
 	local key = key or recipe.key
 	local task = tasks[key]
 	if not task then
-		task = term:new(key, recipe)
+		task = Task:new(key, recipe)
 	end
 
 	-- Update the recipe

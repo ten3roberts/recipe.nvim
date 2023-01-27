@@ -5,8 +5,8 @@ REPLS ...
 
 ... and have the results land in the quickfix list.
 
-Recipes are automatically loaded from `recipes.json` from the current working
-directory. Recipes for common filetypes are preloaded, like build commands.
+Recipes are fetched from multiple sources, such as the `recipes.json` file, the
+current filetype, lsp, Makefiles, and more.
 
 Pairs extraordinarily well with [qf.nvim](https://github.com/ten3roberts/qf.nvim)
 
@@ -16,7 +16,7 @@ require "recipe".setup {}
 ```
 
 ## Baking 🍞
-Run a recipe by name by simply
+Run a recipe by name
 
 ```lua
 require "recipe".bake("build")
@@ -42,25 +42,36 @@ To define global recipes, look at [Configuration](#Configuration).
 Per-project recipes are defined in `recipes.json` in the current working
 directory and will be loaded automatically if trusted (More on that later).
 
-Each recipe defined in json can either be a string specifying a shell command,
-or a table for additional options.
-
 Any filename modifiers such as `%`, `<cfile>`, and others will be expanded
 before the command is executed, which can be used to execute file specific
 commands or opening an HTML file in the browser.
 
-All recipes are a lua table consiting of
-  - *cmd* - The command to execute
-  - *kind* - either of build,term,dap
-  - *cwd* - Working directory to run the recipe in
-  - *restart* - Restart recipe instead of focusing it
-
 Recipe invocations are idempotent, so multiple of the same build invocations
 won't be run at the same time.
 
-If `restart=true` the task will be restarted on subsequent runs, otherwise, the terminal will be focused or
-created again. This is very useful for a REPL which can be closed, reopened, or
-refocused.
+A recipe contains a `cmd` and a `key` which is used to identify it across
+several executions.
+
+### Components
+
+Components define additional behavior for a recipe, such as parsing the command
+output into the quickfix list, or launching a debug session.
+
+```lua
+local recipe = {
+    cmd = "echo Hello, ${SCOPE}",
+    key = "my-command",
+    env = {
+	SCOPE = "World"
+    },
+    components = {
+	qf = {},
+      }
+  }
+
+require "recipe".execute(recipe):focus()
+```
+
 
 ### Example
 ```json
@@ -137,12 +148,6 @@ M.opts = {
 		plain = false,
 		depends_on = {},
 		env = { __type = "table" },
-	},
-
-	adapters = {
-		term = require("recipe.adapters.term"),
-		build = require("recipe.adapters.build"),
-		dap = require("recipe.adapters.dap"),
 	},
 
 	debug_adapters = {

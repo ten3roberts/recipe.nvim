@@ -77,6 +77,7 @@ function Recipe:distance_to(pos)
 
 	return dist
 end
+
 ---@return string
 function Recipe:fmt_cmd()
 	local cmd = self.cmd
@@ -146,6 +147,18 @@ function Recipe:display()
 		tree.Node({ text = line({ ident("source"), text(": "), text(self.source, "String") }) }, {}),
 		tree.Node({ text = line({ ident("cwd"), text(": "), text(self.cwd, "String") }) }, {}),
 	}
+
+	local components = {}
+	for k, v in pairs(self.components) do
+		table.insert(
+			components,
+			tree.Node({ text = field(k, vim.inspect(v, { newline = " ", indent = "", depth = 3 })) })
+		)
+	end
+
+	if #components ~= 0 then
+		table.insert(nodes, tree.Node({ text = ident("components") }, components))
+	end
 
 	local deps = {}
 	for _, v in pairs(self.depends_on or {}) do

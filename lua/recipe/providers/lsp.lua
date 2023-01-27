@@ -70,7 +70,6 @@ function provider.load(_)
 			local recipe = Recipe:new({
 				cmd = cmd,
 				cwd = v.args.workspaceRoot,
-				adapter = "term",
 				key = v.label,
 				location = location,
 			})
