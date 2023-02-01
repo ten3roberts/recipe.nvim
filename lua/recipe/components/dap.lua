@@ -19,14 +19,14 @@ local dap = {
 			name = "Recipe " .. task.recipe.key,
 			program = opts.program,
 			args = opts.args,
-			justMyCode = opts.justMyCode,
-			env = vim.tbl_extend("keep", opts.env or {}, task.env),
+			-- justMyCode = opts.justMyCode,
+			-- env = vim.tbl_extend("keep", opts.env or {}, task.env),
 		}
 
 		local _, dap = pcall(require, "dap")
 		if dap then
-			vim.notify("Launching dap session")
-			dap.run(conf, { env = task.env, cwd = task.recipe.cwd })
+			vim.notify("Launching dap session: " .. vim.inspect(conf))
+			dap.run(conf)
 		else
 			util.error("Dap could not be found")
 		end

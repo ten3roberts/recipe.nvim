@@ -141,9 +141,9 @@ function Task:stop()
 	end
 end
 
-function Task:get_output()
+function Task:get_output(start, endl)
 	if self.bufnr and api.nvim_buf_is_valid(self.bufnr) then
-		return api.nvim_buf_get_lines(self.bufnr, 0, -1, true)
+		return api.nvim_buf_get_lines(self.bufnr, start or 0, endl or -1, false)
 	else
 		return {}
 	end

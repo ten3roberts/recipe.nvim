@@ -1,8 +1,8 @@
 local api = vim.api
 local M = {
 	opts = {
-		max_lines = 10000,
-		throttle = 1000,
+		max_lines = 1000,
+		throttle = 5000,
 	},
 }
 
@@ -14,7 +14,7 @@ local qf = {}
 ---@param _ any
 ---@param task Task
 local function parse(_, task, open)
-	local lines = task:get_output()
+	local lines = task:get_output(0, M.opts.max_lines)
 	qf.lock = quickfix.set(qf.lock, task.recipe, lines, open)
 end
 
@@ -28,8 +28,10 @@ end
 local util = require("recipe.util")
 
 function qf.on_start(_, task)
+	local throttled_parse, stop_parse = util.throttle(parse, M.opts.throttle)
 	task.data.qf = {
-		throttled_parse = util.throttle(parse, M.opts.throttle),
+		throttled_parse = throttled_parse,
+		stop_parse = stop_parse,
 		lock = nil,
 	}
 end
@@ -38,6 +40,7 @@ end
 function qf.on_exit(opts, task)
 	local qf = task.data.qf
 
+	qf.stop_parse()
 	parse(opts, task, nil)
 	quickfix.release_lock(qf.lock)
 end

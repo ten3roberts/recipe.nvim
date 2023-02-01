@@ -372,44 +372,56 @@ function M.throttle(f, timeout)
 
 	local timer
 
-	return function(...)
-		-- Make sure to stop any scheduled timers
+	local args = nil
+
+	local function stop()
 		if timer then
 			timer:stop()
+			timer:close()
+			timer = nil
 		end
+	end
+
+	local function throttle(...)
+		-- Make sure to stop any scheduled timers
+		-- if timer then
+		-- 	vim.notify("Stopping timer")
+		-- end
 
 		local rem = timeout - (vim.loop.now() - last_call)
 		-- Schedule a tail call
 		if rem > 0 then
+			-- vim.notify("Starting timer: " .. rem)
 			-- Reuse timer
 			if not timer then
 				timer = vim.loop.new_timer()
+				timer:start(
+					rem,
+					0,
+					vim.schedule_wrap(function()
+						timer:stop()
+						timer:close()
+						timer = nil
+
+						-- Reset here to ensure timeout between the execution of the
+						-- tail call, and not the last call to throttle
+
+						-- If it was reset in the throttle call, it could be a shorter
+						-- interval between calls to f
+						last_call = vim.loop.now()
+						f(unpack(args))
+					end)
+				)
 			end
 
-			local args = { ... }
-			timer:start(
-				rem,
-				0,
-				vim.schedule_wrap(function()
-					timer:stop()
-					timer:close()
-					timer = nil
-
-					-- Reset here to ensure timeout between the execution of the
-					-- tail call, and not the last call to throttle
-
-					-- If it was reset in the throttle call, it could be a shorter
-					-- interval between calls to f
-					last_call = vim.loop.now()
-
-					f(unpack(args))
-				end)
-			)
+			args = { ... }
 		else
 			last_call = vim.loop.now()
 			f(...)
 		end
 	end
+
+	return throttle, stop
 end
 
 return M
