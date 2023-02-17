@@ -14,10 +14,10 @@ local lock_id = 0
 local M = {}
 
 ---@return Lock|nil
-function M.acquire_lock()
+function M.acquire_lock(force)
 	local cur_time = uv.now()
 
-	if qf_lock == nil or cur_time > qf_lock.expiration then
+	if qf_lock == nil or cur_time > qf_lock.expiration or force then
 		local id = lock_id
 		lock_id = lock_id + 1
 		qf_lock = {
@@ -43,7 +43,7 @@ end
 ---@param data string[]
 ---@param open boolean|nil
 ---@return Lock|nil
-function M.set(lock, recipe, data, open)
+function M.set(lock, recipe, compiler, data, open)
 	--- Refresh lock
 
 	local cur_time = uv.now()
@@ -58,7 +58,6 @@ function M.set(lock, recipe, data, open)
 	if lock then
 		lock.expiration = cur_time + 10
 
-		local compiler = util.get_compiler(recipe:fmt_cmd())
 		local old_cwd = vim.fn.getcwd()
 		api.nvim_set_current_dir(recipe.cwd)
 		util.qf(recipe:fmt_cmd(), compiler, data, open)

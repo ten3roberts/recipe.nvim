@@ -24,7 +24,7 @@ function M.score(task, now, pos)
 	local loc = task.recipe.location
 
 	if task.last_use then
-		score = score + 1000000 / (now - task.last_use)
+		score = score + 100000 - (now - task.last_use) / 1000
 	end
 
 	local dist = task.recipe:distance_to(pos)

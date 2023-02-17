@@ -36,13 +36,19 @@ function M.open_win(config, bufnr)
 			border = config.border,
 		})
 
+		vim.keymap.set("n", "q", function()
+			if api.nvim_win_is_valid(win) then
+				api.nvim_win_close(win, false)
+			end
+		end, { buffer = bufnr })
+
 		local function close()
 			if api.nvim_win_is_valid(win) and api.nvim_get_current_win() ~= win then
 				api.nvim_win_close(win, false)
 			end
 		end
 
-		vim.api.nvim_create_autocmd("WinLeave", {
+		vim.api.nvim_create_autocmd({ "WinLeave", "BufLeave" }, {
 			callback = function()
 				vim.defer_fn(close, 100)
 			end,
@@ -360,6 +366,8 @@ function Task:spawn()
 				cwd = recipe.cwd,
 				on_exit = vim.schedule_wrap(on_exit),
 				env = env,
+				width = 80,
+				height = 24,
 				on_stdout = on_stdout,
 				on_stderr = on_stderr,
 			})

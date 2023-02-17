@@ -14,8 +14,9 @@ local qf = {}
 ---@param _ any
 ---@param task Task
 local function parse(_, task, open)
+	local qf = task.data.qf
 	local lines = task:get_output(0, M.opts.max_lines)
-	qf.lock = quickfix.set(qf.lock, task.recipe, lines, open)
+	qf.lock = quickfix.set(qf.lock, task.recipe, qf.compiler, lines, open)
 end
 
 ---comment
@@ -27,12 +28,14 @@ function qf.on_output(opts, task)
 end
 local util = require("recipe.util")
 
-function qf.on_start(_, task)
+function qf.on_start(opts, task)
 	local throttled_parse, stop_parse = util.throttle(parse, M.opts.throttle)
+
 	task.data.qf = {
 		throttled_parse = throttled_parse,
 		stop_parse = stop_parse,
-		lock = nil,
+		lock = quickfix.acquire_lock(true),
+		compiler = opts.compiler or util.get_compiler(task.recipe:fmt_cmd()),
 	}
 end
 
