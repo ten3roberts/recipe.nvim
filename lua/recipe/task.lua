@@ -6,6 +6,20 @@ local fn = vim.fn
 local M = {}
 local components = require("recipe.components")
 
+local function resolve_size(size, parent_size)
+	if type(size) == "number" then
+		size = { size }
+	end
+
+	local min = parent_size
+	for _, v in ipairs(size) do
+		local v = v <= 1 and (v * parent_size) or v
+		min = math.min(min, v)
+	end
+
+	return math.ceil(min)
+end
+
 ---Opens a new terminal
 ---@param config TermConfig
 function M.open_win(config, bufnr)
@@ -21,8 +35,8 @@ function M.open_win(config, bufnr)
 		local cols = vim.o.columns
 		local cmdheight = vim.o.cmdheight
 
-		local height = math.ceil(config.height < 1 and config.height * lines or config.height)
-		local width = math.ceil(config.width < 1 and config.width * cols or config.width)
+		local height = math.ceil(resolve_size(config.height, lines))
+		local width = math.ceil(resolve_size(config.width, cols))
 
 		local row = math.ceil((lines - height) / 2 - cmdheight)
 		local col = math.ceil((cols - width) / 2)
@@ -78,24 +92,6 @@ local function find_win(bufnr)
 		return nil
 	else
 		return win
-	end
-end
-
-function M.acquire_focused_win(key, config, bufnr)
-	local existing = terminals[key]
-	local win
-
-	if existing then
-		win = find_win(existing)
-	end
-
-	if win then
-		-- Focus the window and buffer
-		api.nvim_set_current_win(win)
-		api.nvim_win_set_buf(win, bufnr)
-		return win
-	else
-		return M.open_win(config, bufnr)
 	end
 end
 
@@ -196,6 +192,27 @@ function Task:close()
 	end
 end
 
+function Task:get_window()
+	local existing = terminals[self.recipe.key]
+
+	if existing then
+		return find_win(existing)
+	end
+end
+
+function Task:acquire_focused_win(config)
+	local win = self:get_window()
+
+	if win then
+		-- Focus the window and buffer
+		api.nvim_set_current_win(win)
+		api.nvim_win_set_buf(win, self.bufnr)
+		return win
+	else
+		return M.open_win(config, self.bufnr)
+	end
+end
+
 function Task:open()
 	self:spawn():focus({})
 end
@@ -221,7 +238,7 @@ function Task:focus(mode)
 	local function f()
 		mode = vim.tbl_extend("keep", mode or {}, require("recipe.config").opts.term)
 
-		local win = M.acquire_focused_win(self.recipe.key, mode, self.bufnr)
+		local win = self:acquire_focused_win(mode)
 
 		-- Do this afterwards to be able to look up the old buffer
 		terminals[self.recipe.key] = self.bufnr
@@ -321,7 +338,9 @@ function Task:spawn()
 			local state = code == 0 and "Success" or string.format("Failure %d", code)
 
 			local msg = string.format("%s: %q %s", state, key, util.format_time(duration))
-			vim.notify(msg, level)
+			if not self:get_window() then
+				vim.notify(msg, level)
+			end
 
 			for _, cb in ipairs(self.on_exit) do
 				cb(self, code)

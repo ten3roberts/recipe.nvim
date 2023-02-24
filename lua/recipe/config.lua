@@ -10,8 +10,8 @@ local util = require("recipe.util")
 M.opts = {
 	---@class TermConfig
 	term = {
-		height = 24,
-		width = 80,
+		height = 0.5,
+		width = { 120, 0.5 },
 		kind = "smart",
 		border = "none",
 	},
@@ -22,13 +22,13 @@ M.opts = {
 		global = {},
 		filetypes = {
 			rust = {
-				build = { cmd = "cargo build --bins -q" },
-				check = { cmd = "cargo check --bins --examples -q" },
-				clippy = { cmd = "cargo clippy -q" },
-				clean = { cmd = "cargo clean -q" },
+				build = { cmd = "cargo build" },
+				check = { cmd = "cargo check" },
+				clippy = { cmd = "cargo clippy" },
+				clean = { cmd = "cargo clean" },
 				run = { cmd = "cargo run" },
-				test = { cmd = "cargo test --all-features", keep_open = false },
-				doc = { cmd = "cargo doc -q --open" },
+				test = { cmd = "cargo test --all-features" },
+				doc = { cmd = "cargo doc --open" },
 			},
 			python = {
 				run = { cmd = "python %" },
