@@ -84,7 +84,7 @@ function M.open_win(config, bufnr)
 	end
 end
 
-local terminals = {}
+local active_buffers = {}
 
 local function find_win(bufnr)
 	local win = fn.bufwinid(bufnr)
@@ -192,16 +192,27 @@ function Task:close()
 	end
 end
 
-function Task:get_window()
-	local existing = terminals[self.recipe.key]
+---@return number|nil
+---@param mode TermConfig
+function Task:get_window(mode)
+	local win = find_win(self.bufnr)
+	if win then
+		return win
+	end
 
-	if existing then
-		return find_win(existing)
+	if mode.global_terminal then
+		for _, bufnr in pairs(active_buffers) do
+			local win = find_win(bufnr)
+			if win then
+				vim.notify("Found open terminal with buffer: " .. bufnr)
+				return win
+			end
+		end
 	end
 end
 
 function Task:acquire_focused_win(config)
-	local win = self:get_window()
+	local win = self:get_window(config)
 
 	if win then
 		-- Focus the window and buffer
@@ -222,15 +233,15 @@ function Task:open_smart()
 end
 
 function Task:open_float()
-	self:spawn():focus({ kind = "float" })
+	self:spawn():focus({ kind = "float", global_terminal = false })
 end
 
 function Task:open_split()
-	self:spawn():focus({ kind = "split" })
+	self:spawn():focus({ kind = "split", global_terminal = false })
 end
 
 function Task:open_vsplit()
-	self:spawn():focus({ kind = "vsplit" })
+	self:spawn():focus({ kind = "vsplit", global_terminal = false })
 end
 
 ---@param mode TermConfig|nil
@@ -240,12 +251,11 @@ function Task:focus(mode)
 
 		local win = self:acquire_focused_win(mode)
 
-		-- Do this afterwards to be able to look up the old buffer
-		terminals[self.recipe.key] = self.bufnr
-
 		if config.opts.scroll_to_end then
 			util.scroll_to_end(win)
 		end
+
+		active_buffers[self.bufnr] = self.bufnr
 	end
 
 	if self.bufnr and self.state ~= TaskState.PENDING then
@@ -273,13 +283,24 @@ function Task:spawn()
 	self.data = {}
 	self.deps = {}
 	self.state = TaskState.PENDING
+
 	---@type TermConfig
 	-- local term_config = vim.tbl_deep_extend("force", require("recipe.config").opts.term, {})
 
 	local key = self.recipe.key
 
+	local prev_buf = self.bufnr
+	local prev_win = prev_buf and find_win(prev_buf)
+
 	-- Create a blank buffer for the terminal
 	local bufnr = api.nvim_create_buf(false, false)
+	api.nvim_create_autocmd({ "BufDelete" }, {
+		buffer = bufnr,
+		callback = function()
+			vim.notify(string.format("Terminal buffer for %s closed"), key)
+			active_buffers[bufnr] = nil
+		end,
+	})
 	self.bufnr = bufnr
 	local recipe = self.recipe
 
@@ -338,7 +359,7 @@ function Task:spawn()
 			local state = code == 0 and "Success" or string.format("Failure %d", code)
 
 			local msg = string.format("%s: %q %s", state, key, util.format_time(duration))
-			if not self:get_window() then
+			if not self:get_window({ global_terminal = false }) then
 				vim.notify(msg, level)
 			end
 
@@ -375,13 +396,16 @@ function Task:spawn()
 		end
 
 		local cmd = self.recipe.cmd
+		vim.notify("Running command: " .. vim.inspect(cmd))
 		if not recipe.components.plain and type(recipe.cmd) == "string" then
 			cmd = cmd:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)
 		end
 
-		local jobnr
+		local err = ""
+
+		local jobnr = -1
 		vim.api.nvim_buf_call(self.bufnr, function()
-			jobnr = fn.termopen(cmd, {
+			local success, j = pcall(fn.termopen, cmd, {
 				cwd = recipe.cwd,
 				on_exit = vim.schedule_wrap(on_exit),
 				env = env,
@@ -390,10 +414,21 @@ function Task:spawn()
 				on_stdout = on_stdout,
 				on_stderr = on_stderr,
 			})
+
+			if success then
+				jobnr = j
+			else
+				err = j
+			end
 		end)
 
+		if prev_win then
+			vim.notify("Replacing previous terminal for task")
+			api.nvim_win_set_buf(prev_win, self.bufnr)
+		end
+
 		if jobnr <= 0 then
-			util.error("Failed to run command: " .. recipe:fmt_cmd())
+			util.error(string.format("Failed to run command: %q\n\n%s", recipe:fmt_cmd(), err))
 			on_exit(nil, -1)
 			return
 		end

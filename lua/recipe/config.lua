@@ -14,6 +14,7 @@ M.opts = {
 		width = { 120, 0.5 },
 		kind = "smart",
 		border = "none",
+		global_terminal = true,
 	},
 	scroll_to_end = true,
 	recipes_file = "recipes.json",
