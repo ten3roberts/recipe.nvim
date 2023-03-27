@@ -28,7 +28,7 @@ function M.score(task, now, pos)
 
 	local dist = task.recipe:distance_to(pos)
 	if dist then
-		score = score + math.max(100 - math.max(dist, 0), 0)
+		score = score + 100 + math.max(100 - math.max(dist, 0), 0)
 	end
 
 	if task.state == "running" then
