@@ -18,7 +18,7 @@ local last_used = {}
 M.last_used = last_used
 
 ---@param task Task
----@param pos Position
+---@param pos Position|nil
 function M.score(task, now, pos)
 	local score = 0
 
@@ -26,7 +26,7 @@ function M.score(task, now, pos)
 		score = score + 100000 - (now - task.last_use) / 1000
 	end
 
-	local dist = task.recipe:distance_to(pos)
+	local dist = pos and task.recipe:distance_to(pos)
 	if dist then
 		score = score + 100 + math.max(100 - math.max(dist, 0), 0)
 	end
@@ -49,7 +49,6 @@ local function push_recent(task)
 end
 
 --- Returns a list of tasks
----@async
 function M.all_tasks()
 	return tasks
 end

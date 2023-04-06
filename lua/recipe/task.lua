@@ -113,6 +113,7 @@ local TaskState = {
 ---@field data table<string, any>
 ---@field env table<string, string>
 ---@field on_exit fun(task: Task, code: number)[]
+---@field on_output fun(task: Task)[]
 ---@field deferred_focus fun(task: Task)
 ---@field deps Task[]
 ---@field state TaskState
@@ -151,7 +152,39 @@ function Task:get_output(start, endl)
 	end
 end
 
+function Task:get_tail_output(count)
+	if not self.bufnr or not api.nvim_buf_is_valid(self.bufnr) then
+		return {}
+	end
+
+	local endl = api.nvim_buf_line_count(self.bufnr)
+	local count = math.min(count, endl)
+
+	local lines = {}
+
+	-- Get last `count` lines and filter blank lines
+	while #lines < count and endl > 0 do
+		local remaining = count - #lines
+		print(string.format("Fetching %d lines", remaining))
+		local req = api.nvim_buf_get_lines(self.bufnr, math.max(0, endl - remaining), endl, false)
+
+		-- Move back the cursor
+		endl = endl - remaining
+
+		for _, line in ipairs(req) do
+			if line:match("%S+") then
+				table.insert(lines, line)
+			end
+		end
+	end
+	print("Got " .. #lines .. " lines")
+
+	return lines
+end
+
 --- Creates a new task without running it
+---
+--- A key uniquely identifies a task
 function Task:new(key, recipe)
 	return setmetatable({
 		key = key,
@@ -229,7 +262,7 @@ function Task:open()
 end
 
 function Task:open_smart()
-	self:spawn():focus({ kind = "smart" })
+	self:spawn():focus({ kind = "smart", global_terminal = false })
 end
 
 function Task:open_float()
@@ -297,7 +330,7 @@ function Task:spawn()
 	api.nvim_create_autocmd({ "BufDelete" }, {
 		buffer = bufnr,
 		callback = function()
-			vim.notify(string.format("Terminal buffer for %s closed"), key)
+			vim.notify(string.format("Terminal buffer for %s closed", key))
 			active_buffers[bufnr] = nil
 		end,
 	})

@@ -73,14 +73,13 @@ M.actions = {
 function M.pick(opts)
 	opts = opts or {}
 
-	local tasks = lib.load(1000)
-
 	local t = {}
 
-	local now = vim.loop.now()
+	local tasks = lib.load(1000)
 
 	local util = require("recipe.util")
-	local loc = util.get_position()
+
+	local now = vim.loop.now()
 
 	for _, task in pairs(tasks) do
 		if not task.recipe.hidden then
@@ -118,7 +117,7 @@ function M.pick(opts)
 			attach_mappings = function(_, map)
 				actions.select_default:replace(M.actions.open)
 				actions.select_horizontal:replace(M.actions.open_split)
-				actions.select_vertical:replace(M.actions.open_vsplit)
+				actions.select_vertical:replace(M.actions.open_smart)
 				actions.select_tab:replace(M.actions.spawn)
 				map({ "i", "n" }, "<C-d>", M.actions.stop)
 				return true

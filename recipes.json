@@ -27,12 +27,17 @@
       "sleep",
       {
         "cmd": "firefox --url 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'",
-        "depends_on": ["sleep"]
+        "depends_on": [
+          "sleep"
+        ]
       }
     ]
   },
   "with-dependencies": {
-    "cmd": ["notify-send", "Runnning command"],
+    "cmd": [
+      "notify-send",
+      "Runnning command"
+    ],
     "depends_on": [
       {
         "cmd": "sleep 10 && notify-send a"

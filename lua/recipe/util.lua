@@ -96,7 +96,7 @@ function M.nvim_qf(title, compiler, data, open)
 		title = title,
 		compiler = compiler,
 		lines = data,
-		tally = true,
+		save = true,
 		open = open,
 	})
 end
@@ -284,6 +284,7 @@ end
 
 local remove_escape_codes = M.remove_escape_codes
 
+---@param task Task
 function M.curry_output(method, task)
 	local components = require("recipe.components")
 	local prev_line = ""
@@ -291,7 +292,12 @@ function M.curry_output(method, task)
 
 	return function(_, lines)
 		on_output(task)
-	end, function() end
+
+		-- for _, v in ipairs(task.on_output) do
+		-- 	v(task)
+		-- end
+	end, function()
+	end
 end
 
 --from https://github.com/stevearc/overseer.nvim/blob/82ed207195b58a73b9f7d013d6eb3c7d78674ac9/lua/overseer/util.lua#L119

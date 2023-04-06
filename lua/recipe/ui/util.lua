@@ -50,4 +50,14 @@ function M.apply_tree_mappings(popup, tree)
 	end)
 end
 
+---@param lines NuiLine[]
+---@param bufnr integer
+---@param ns_id integer
+---@param linenr_start integer
+function M.render_lines(lines, bufnr, ns_id, linenr_start)
+	for i, line in ipairs(lines) do
+		line:render(bufnr, ns_id, linenr_start + i - 1)
+	end
+end
+
 return M
