@@ -4,7 +4,7 @@ local Recipe = require("recipe.recipe")
 ---Provides recipes from the `recipes.json` file
 ---@class RecipesProvider : Provider
 local provider = {
-	memo = util.memoize_files(),
+	memo = util.memoize_files(vim.secure.read),
 }
 
 ---@return RecipeStore

@@ -284,7 +284,7 @@ local function parse(tokens)
 	return variables
 end
 
-local memo = util.memoize_files()
+local memo = util.memoize_files(vim.secure.read)
 
 --- Loads an environment file, by default .env
 ---@async

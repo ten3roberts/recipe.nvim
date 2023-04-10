@@ -227,8 +227,9 @@ end
 
 ---@generic T
 ---@return fun(path: string, parse: fun(data: string|nil, path: string|nil): T): T, boolean
-function M.memoize_files()
+function M.memoize_files(reader)
 	local cache = {}
+	local reader = reader or M.read_file_async
 
 	---@async
 	return function(path, parse)
@@ -249,7 +250,7 @@ function M.memoize_files()
 
 		-- Load and parse the file
 
-		local data, _ = M.read_file_async(path)
+		local data, _ = reader(path)
 
 		M.watch_file(path, function()
 			vim.notify(path .. " changed")
@@ -296,8 +297,7 @@ function M.curry_output(method, task)
 		-- for _, v in ipairs(task.on_output) do
 		-- 	v(task)
 		-- end
-	end, function()
-	end
+	end, function() end
 end
 
 --from https://github.com/stevearc/overseer.nvim/blob/82ed207195b58a73b9f7d013d6eb3c7d78674ac9/lua/overseer/util.lua#L119
