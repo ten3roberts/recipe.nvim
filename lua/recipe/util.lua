@@ -116,7 +116,7 @@ end
 
 local uv = vim.loop
 
-function M.error(msg)
+function M.log_error(msg)
 	vim.notify(msg, vim.log.levels.ERROR)
 end
 
@@ -293,10 +293,6 @@ function M.curry_output(method, task)
 
 	return function(_, lines)
 		on_output(task)
-
-		-- for _, v in ipairs(task.on_output) do
-		-- 	v(task)
-		-- end
 	end, function() end
 end
 
@@ -372,7 +368,13 @@ function M.get_position()
 	}
 end
 
+---@class Throttle
+---@field __call fun(self, ...)
+---@field stop fun()
+---@field call_now fun(...)
+
 ---Throttle a function using tail calling
+---@return Throttle
 function M.throttle(f, timeout)
 	local last_call = 0
 
@@ -388,7 +390,7 @@ function M.throttle(f, timeout)
 		end
 	end
 
-	local function throttle(...)
+	local function throttle(_, ...)
 		-- Make sure to stop any scheduled timers
 		-- if timer then
 		-- 	vim.notify("Stopping timer")
@@ -405,9 +407,11 @@ function M.throttle(f, timeout)
 					rem,
 					0,
 					vim.schedule_wrap(function()
-						timer:stop()
-						timer:close()
-						timer = nil
+						if timer then
+							timer:stop()
+							timer:close()
+							timer = nil
+						end
 
 						-- Reset here to ensure timeout between the execution of the
 						-- tail call, and not the last call to throttle
@@ -422,12 +426,37 @@ function M.throttle(f, timeout)
 
 			args = { ... }
 		else
+			vim.notify("Calling directly")
 			last_call = vim.loop.now()
 			f(...)
 		end
 	end
 
-	return throttle, stop
+	local o = { __call = throttle, stop = stop, call_now = f }
+	return setmetatable(o, o)
 end
+
+local function timeout_cb(f, timeout, cb)
+	local done = false
+
+	local result = nil
+
+	local function finish()
+		if not done then
+			done = true
+			cb(result)
+		end
+	end
+
+	async.run(function()
+		result = f()
+	end, finish)
+
+	vim.defer_fn(finish, timeout)
+end
+
+---@generic T
+---@type fun(f: (fun(): T), timeout: number): T|nil
+M.timeout = async.wrap(timeout_cb, 3)
 
 return M

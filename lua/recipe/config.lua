@@ -76,6 +76,7 @@ M.opts = {
 	--- The components which are attached to all recipes
 	default_components = {
 		qf = {},
+		panel = {},
 	},
 
 	debug_adapters = {

@@ -165,15 +165,17 @@ function Task:get_tail_output(count)
 	-- Get last `count` lines and filter blank lines
 	while #lines < count and endl > 0 do
 		local remaining = count - #lines
-		print(string.format("Fetching %d lines", remaining))
 		local req = api.nvim_buf_get_lines(self.bufnr, math.max(0, endl - remaining), endl, false)
 
 		-- Move back the cursor
 		endl = endl - remaining
 
+		local idx = 1
 		for _, line in ipairs(req) do
 			if line:match("%S+") then
-				table.insert(lines, line)
+				table.insert(lines, idx, line)
+				-- Only increment for matched lines
+				idx = idx + 1
 			end
 		end
 	end
@@ -343,6 +345,9 @@ function Task:spawn()
 	end
 
 	local uv = vim.loop
+
+	local instances = components.instantiate(recipe)
+
 	async.run(function()
 		--- Run dependencies
 
@@ -366,17 +371,19 @@ function Task:spawn()
 			async.util.join(deps)
 		end
 
-		local on_stdout, stdout_cleanup = util.curry_output("on_output", self)
-		local on_stderr, stderr_cleanup = util.curry_output("on_output", self)
+		local on_output = components.collect_method(instances, "on_output")
+		local on_stdout = function()
+			on_output(self)
+		end
+		local on_stderr = function()
+			on_output(self)
+		end
 
 		local start_time = uv.now()
 		local function on_exit(_, code)
 			self.jobnr = nil
 			self.code = code
 			self.state = TaskState.STOPPED
-
-			stdout_cleanup()
-			stderr_cleanup()
 
 			if code == 0 and config.auto_close and fn.bufloaded(bufnr) == 1 then
 				local win = find_win(bufnr)
@@ -404,7 +411,7 @@ function Task:spawn()
 		end
 
 		if err then
-			util.error("Failed to execute dependency: " .. err)
+			util.log_error("Failed to execute dependency: " .. err)
 			on_exit(nil, -1)
 			return
 		end
@@ -419,7 +426,7 @@ function Task:spawn()
 		self.env = env
 
 		if vim.fn.isdirectory(recipe.cwd) ~= 1 then
-			util.error("No such directory: " .. vim.inspect(recipe.cwd))
+			util.log_error("No such directory: " .. vim.inspect(recipe.cwd))
 			on_exit(nil, -1)
 			return
 		end
@@ -430,8 +437,10 @@ function Task:spawn()
 
 		local cmd = self.recipe.cmd
 		vim.notify("Running command: " .. vim.inspect(cmd))
-		if not recipe.components.plain and type(recipe.cmd) == "string" then
-			cmd = cmd:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)
+		if not recipe.components.plain then
+			if type(cmd) == "string" then
+				cmd = cmd:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)
+			end
 		end
 
 		local err = ""
@@ -461,7 +470,7 @@ function Task:spawn()
 		end
 
 		if jobnr <= 0 then
-			util.error(string.format("Failed to run command: %q\n\n%s", recipe:fmt_cmd(), err))
+			util.log_error(string.format("Failed to run command: %q\n\n%s", recipe:fmt_cmd(), err))
 			on_exit(nil, -1)
 			return
 		end
@@ -470,9 +479,10 @@ function Task:spawn()
 		self.state = TaskState.RUNNING
 		self.jobnr = jobnr
 
-		components.execute(recipe, "on_start", self)
+		lib.push_recent(self)
+		components.execute(instances, "on_start", self)
 		self:attach_callback(function()
-			components.execute(recipe, "on_exit", self)
+			components.execute(instances, "on_exit", self)
 		end)
 
 		if self.deferred_focus then

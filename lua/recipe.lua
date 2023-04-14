@@ -14,24 +14,6 @@ local M = {
 ---@param opts Config
 function M.setup(opts)
 	config.setup(opts)
-
-	local group = api.nvim_create_augroup("Recipe", { clear = true })
-	local function au(event, o)
-		o.group = group
-		api.nvim_create_autocmd(event, o)
-	end
-
-	require("recipe.components.qf").setup()
-	require("recipe.components.dap").setup()
-
-	au({ "BufWritePre" }, {
-		pattern = config.opts.recipes_file,
-		callback = function(o)
-			vim.notify(string.format("Modified %s in vim", o.file))
-			-- modified_in_vim[o.file] = true
-		end,
-	})
-
 	-- if config.opts.term.jump_to_end then
 	-- 	au("TermOpen", {
 	-- 		callback = function()
@@ -79,7 +61,7 @@ function M.bake(name, open)
 		local task = tasks[name]
 
 		if task == nil then
-			return util.error("No such recipe: " .. name)
+			return util.log_error("No such recipe: " .. name)
 		end
 
 		task:spawn()

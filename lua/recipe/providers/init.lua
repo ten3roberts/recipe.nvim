@@ -17,24 +17,16 @@ function M.register(name, provider)
 	providers[name] = provider
 end
 
----Loads recipes and calls the callback with the results until completion or timeout
+---Loads the recipes from the registered providers
 ---@param timeout number|nil
----@param cb fun(recipes: RecipeStore)
-function M.load_callback(timeout, cb)
-	local done = false
-	local result = {}
+---@return RecipeStore
+function M.load(timeout)
+	local function load()
+		local result = {}
 
-	local config = require("recipe.config")
-	local path = vim.loop.fs_realpath(vim.fn.getcwd())
+		local config = require("recipe.config")
+		local path = vim.loop.fs_realpath(vim.fn.getcwd())
 
-	local function finish()
-		if not done then
-			done = true
-			cb(result)
-		end
-	end
-
-	async.run(function()
 		local futures = {}
 		for i, def in pairs(config.opts.providers) do
 			local provider = providers[def.name]
@@ -62,16 +54,16 @@ function M.load_callback(timeout, cb)
 		if #futures > 0 then
 			async.util.join(futures)
 		end
-	end, finish)
+
+		return result
+	end
 
 	if timeout then
-		vim.defer_fn(finish, timeout)
+		return util.timeout(load, timeout) or {}
+	else
+		return load()
 	end
 end
-
----Loads the recipes from the registered providers
----@type fun(timeout: number|nil): RecipeStore
-M.load = async.wrap(M.load_callback, 2)
 
 M.test = async.void(function()
 	require("recipe").setup({})

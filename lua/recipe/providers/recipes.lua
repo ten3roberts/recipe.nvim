@@ -12,7 +12,7 @@ local function parse_recipes(data, path)
 	data = data or "{}"
 	local ok, json = pcall(vim.json.decode, data)
 	if not ok then
-		util.error(string.format("Failed to read recipes file: %s", json))
+		util.log_error(string.format("Failed to read recipes file: %s", json))
 		return {}
 	end
 
@@ -101,7 +101,7 @@ local function parse_recipes(data, path)
 		local recipe, err = parse_recipe(key, value)
 
 		if not recipe then
-			util.error("Failed to parse recipe: " .. key .. "\n" .. err)
+			util.log_error("Failed to parse recipe: " .. key .. "\n" .. err)
 			recipes[key] = nil
 		end
 	end

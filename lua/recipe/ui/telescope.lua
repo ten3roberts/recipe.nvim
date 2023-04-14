@@ -75,7 +75,7 @@ function M.pick(opts)
 
 	local t = {}
 
-	local tasks = lib.load(1000)
+	local tasks = lib.load()
 
 	local util = require("recipe.util")
 

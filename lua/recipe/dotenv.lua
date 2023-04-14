@@ -115,7 +115,7 @@ local function tok_string(data, prev)
 			elseif c == "'" then
 				s[#s + 1] = "'"
 			else
-				return util.error("unknown escape: " .. c)
+				return util.log_error("unknown escape: " .. c)
 			end
 			in_escape = false
 		elseif c == "\\" then
@@ -171,7 +171,7 @@ local function tokenize(data)
 	while #data > 0 and i < 100 do
 		local token, tail = tok_next(data, prev)
 		if not token or not tail then
-			util.error("Failed to parse dotenv. Unexpected near: " .. data:sub(1, math.a(#data, 16)))
+			util.log_error("Failed to parse dotenv. Unexpected near: " .. data:sub(1, math.a(#data, 16)))
 			return {}
 		end
 
@@ -188,7 +188,7 @@ end
 ---@param parser Parser
 local function parse_string(parser)
 	if parser:peek().kind ~= "string" then
-		return util.error('Expected string after "')
+		return util.log_error('Expected string after "')
 	end
 
 	local s = ""
@@ -213,14 +213,14 @@ local function parse_value(parser)
 		parser:take()
 		return tok.data
 	else
-		return util.error("Failed to parse dotenv. Expected string after key")
+		return util.log_error("Failed to parse dotenv. Expected string after key")
 	end
 end
 
 ---@param parser Parser
 local function parse_var(parser)
 	if parser:peek().kind ~= "ident" then
-		util.error("Expected ident")
+		util.log_error("Expected ident")
 		return
 	end
 
@@ -228,7 +228,7 @@ local function parse_var(parser)
 
 	local eq = parser:take()
 	if eq.kind ~= "symbol" and eq.data == "=" then
-		return util.error("Expected equal after ident")
+		return util.log_error("Expected equal after ident")
 	end
 
 	local value = parse_value(parser)
@@ -276,7 +276,7 @@ local function parse(tokens)
 		elseif tok.kind == "keyword" or tok.kind == "whitespace" or tok.kind == "comment" then
 			parser:take()
 		else
-			util.error("Unexpected token: " .. vim.inspect(tok))
+			util.log_error("Unexpected token: " .. vim.inspect(tok))
 			return
 		end
 	end
@@ -298,13 +298,13 @@ function M.load(path)
 
 		local tokens = tokenize(data)
 		if not tokens then
-			util.error("Failed to tokenize dotenv")
+			util.log_error("Failed to tokenize dotenv")
 			return {}
 		end
 
 		local env = parse(tokens)
 		if not env then
-			util.error("Failed to load env from " .. path)
+			util.log_error("Failed to load env from " .. path)
 			return {}
 		end
 

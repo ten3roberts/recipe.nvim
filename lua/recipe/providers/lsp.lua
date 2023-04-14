@@ -1,4 +1,5 @@
 local async = require("plenary.async")
+local util = require("recipe.util")
 local Recipe = require("recipe.recipe")
 local provider = {}
 
@@ -40,7 +41,9 @@ end
 ---@param _ string
 ---@return RecipeStore
 function provider.load(_)
-	local results = runnables(vim.api.nvim_get_current_buf())
+	local results = util.timeout(function()
+		return runnables(vim.api.nvim_get_current_buf())
+	end, 5000)
 	local t = {}
 
 	for _, v in ipairs(results or {}) do

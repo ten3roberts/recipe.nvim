@@ -26,3 +26,13 @@ api.nvim_create_user_command("RecipeAbort", function()
 	local recipe = require("recipe")
 	recipe.stop_all()
 end, {})
+
+api.nvim_create_user_command("RecipeOpen", function()
+	local panel = require("recipe.ui.panel")
+	panel:open()
+end, {})
+
+api.nvim_create_user_command("RecipeClose", function()
+	local panel = require("recipe.ui.panel")
+	panel:close()
+end, {})

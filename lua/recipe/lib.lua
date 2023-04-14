@@ -40,9 +40,16 @@ function M.score(task, now, pos)
 	return score
 end
 
-local function push_recent(task)
+function M.push_recent(task)
 	if #recent_tasks > 16 then
 		table.remove(recent_tasks, 0)
+	end
+	for i, v in ipairs(recent_tasks) do
+		if v == task then
+			print("Found existing task at " .. i)
+			table.remove(recent_tasks, i)
+			break
+		end
 	end
 
 	table.insert(recent_tasks, task)

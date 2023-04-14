@@ -3,7 +3,7 @@ local has_mason, mason = pcall(require, "mason-registry")
 local codelldb = function(on_adapter)
 	if not has_mason then
 		local util = require("recipe.util")
-		util.error("Codelldb requires mason.nvim for installation")
+		util.log_error("Codelldb requires mason.nvim for installation")
 		return
 	end
 	local pkg = mason.get_package("codelldb")
