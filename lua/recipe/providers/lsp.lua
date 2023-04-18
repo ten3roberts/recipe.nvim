@@ -6,10 +6,10 @@ local provider = {}
 ---@param bufnr number
 ---@param cb fun(err: table|nil, result: table|nil)
 local function client_runnables(client, bufnr, cb)
-	vim.notify("client_runnables" .. client.name)
 	client.request(
 		"experimental/runnables",
 		{ textDocument = vim.lsp.util.make_text_document_params(bufnr), position = nil },
+
 		cb
 	)
 end
@@ -17,23 +17,36 @@ end
 ---@type fun(client, bufnr): (table|nil, table|nil)
 local runnables_async = async.wrap(client_runnables, 3)
 
+---@return table
 local function runnables(bufnr)
 	local futures = {}
 	local result = {}
 	for _, client in pairs(vim.lsp.get_active_clients({ bufnr = bufnr })) do
 		if client.supports_method("experimental/runnables") then
-			table.insert(futures, function()
-				local _, res = runnables_async(client, bufnr)
-				for _, v in ipairs(res or {}) do
-					table.insert(result, v)
-				end
-			end)
+			table.insert(
+				futures,
+				util.timeout(
+					function()
+						local _, res = runnables_async(client, bufnr)
+						for _, v in ipairs(res or {}) do
+							table.insert(result, v)
+						end
+
+						return nil
+					end,
+					2000,
+					function()
+						util.warn("LSP runnables timed out for " .. client.name)
+					end
+				)
+			)
 		end
 	end
 
 	if #futures > 0 then
 		async.util.join(futures)
 	end
+
 	return result
 end
 
@@ -41,12 +54,7 @@ end
 ---@param _ string
 ---@return RecipeStore
 function provider.load(_)
-	local results = util.timeout(function()
-		return runnables(vim.api.nvim_get_current_buf())
-	end, 1000)
-	if not results then
-		util.warn("LSP runnables timed out")
-	end
+	local results = runnables(vim.api.nvim_get_current_buf())
 	local t = {}
 
 	for _, v in ipairs(results or {}) do
@@ -83,6 +91,9 @@ function provider.load(_)
 			t[recipe.key] = recipe
 		end
 	end
+
+	print("Returning lsp results")
+
 	return t
 end
 

@@ -430,7 +430,6 @@ function M.throttle(f, timeout)
 
 			args = { ... }
 		else
-			vim.notify("Calling directly")
 			last_call = vim.loop.now()
 			f(...)
 		end
@@ -440,27 +439,33 @@ function M.throttle(f, timeout)
 	return setmetatable(o, o)
 end
 
-local function timeout_cb(f, timeout, cb)
+local function timeout_cb(f, timeout, on_timeout, cb)
 	local done = false
 
 	local result = nil
 
 	local function finish()
 		if not done then
+			vim.notify("Finished with " .. vim.inspect(result))
 			done = true
-			cb(result)
+			cb(result and unpack(result))
 		end
 	end
 
 	async.run(function()
-		result = f()
+		result = { f() }
 	end, finish)
 
-	vim.defer_fn(finish, timeout)
+	vim.defer_fn(function()
+		if on_timeout then
+			on_timeout()
+		end
+		finish()
+	end, timeout)
 end
 
 ---@generic T
----@type fun(f: (fun(): T), timeout: number): T|nil
-M.timeout = async.wrap(timeout_cb, 3)
+---@type fun(f: (fun(): T), timeout: number, on_timeout: fun()|nil): T|nil
+M.timeout = async.wrap(timeout_cb, 4)
 
 return M
