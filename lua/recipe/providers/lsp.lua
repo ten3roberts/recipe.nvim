@@ -6,8 +6,8 @@ local provider = {}
 ---@param bufnr number
 ---@param cb fun(err: table|nil, result: table|nil)
 local function client_runnables(client, bufnr, cb)
-	vim.lsp.buf_request(
-		bufnr,
+	vim.notify("client_runnables" .. client.name)
+	client.request(
 		"experimental/runnables",
 		{ textDocument = vim.lsp.util.make_text_document_params(bufnr), position = nil },
 		cb
@@ -43,7 +43,10 @@ end
 function provider.load(_)
 	local results = util.timeout(function()
 		return runnables(vim.api.nvim_get_current_buf())
-	end, 5000)
+	end, 1000)
+	if not results then
+		util.warn("LSP runnables timed out")
+	end
 	local t = {}
 
 	for _, v in ipairs(results or {}) do

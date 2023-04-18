@@ -96,6 +96,7 @@ function M.pick(opts)
 		return lib.score(a, now, pos) > lib.score(b, now, pos)
 	end)
 
+	print("Creating picker")
 	pickers
 		.new(opts, {
 			prompt_title = "Recipes",
@@ -109,7 +110,7 @@ function M.pick(opts)
 					return {
 						value = entry,
 						display = fmt,
-						ordinal = entry.key .. " " .. entry.recipe:fmt_cmd(),
+						ordinal = fmt,
 					}
 				end,
 			}),

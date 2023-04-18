@@ -2,5 +2,11 @@
     "$schema": "https://raw.githubusercontent.com/sumneko/vscode-lua/master/setting/schema.json",
     "Lua.diagnostics.disable": [
         "redefined-local"
+    ],
+    "workspace.library": [
+        "/Users/teiroberts/.local/share/nvim/lazy/neodev.nvim/types/nightly",
+        "/opt/homebrew/Cellar/neovim/HEAD-9033d5e/share/nvim/runtime/lua",
+        "/Users/teiroberts/dev/nvim/recipe.nvim/lua",
+        "${3rd}/luv/library"
     ]
 }

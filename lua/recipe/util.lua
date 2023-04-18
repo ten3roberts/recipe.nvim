@@ -120,6 +120,10 @@ function M.log_error(msg)
 	vim.notify(msg, vim.log.levels.ERROR)
 end
 
+function M.warn(msg)
+	vim.notify(msg, vim.log.levels.WARN)
+end
+
 ---@param path string
 ---@param callback fun(data: string|nil)
 function M.read_file(path, callback)
