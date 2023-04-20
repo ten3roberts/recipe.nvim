@@ -46,7 +46,6 @@ function M.push_recent(task)
 	end
 	for i, v in ipairs(recent_tasks) do
 		if v == task then
-			print("Found existing task at " .. i)
 			table.remove(recent_tasks, i)
 			break
 		end

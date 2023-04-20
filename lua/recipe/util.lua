@@ -457,7 +457,7 @@ local function timeout_cb(f, timeout, on_timeout, cb)
 	end, finish)
 
 	vim.defer_fn(function()
-		if on_timeout then
+		if not done and on_timeout then
 			on_timeout()
 		end
 		finish()

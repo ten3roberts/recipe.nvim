@@ -79,12 +79,6 @@ M.opts = {
 		panel = {},
 	},
 
-	debug_adapters = {
-		rust = require("recipe.debug_adapters").codelldb,
-		c = require("recipe.debug_adapters").codelldb,
-		cpp = require("recipe.debug_adapters").codelldb,
-	},
-
 	dotenv = ".env",
 }
 
