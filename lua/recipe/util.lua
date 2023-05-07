@@ -446,7 +446,6 @@ local function timeout_cb(f, timeout, on_timeout, cb)
 
 	local function finish()
 		if not done then
-			vim.notify("Finished with " .. vim.inspect(result))
 			done = true
 			cb(result and unpack(result))
 		end

@@ -92,8 +92,6 @@ function provider.load(_)
 		end
 	end
 
-	print("Returning lsp results")
-
 	return t
 end
 
