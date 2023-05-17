@@ -11,6 +11,7 @@ local provider = {
 local function parse_recipes(data, path)
 	data = data or "{}"
 	local ok, json = pcall(vim.json.decode, data)
+	assert(json)
 	if not ok then
 		util.log_error(string.format("Failed to read recipes file: %s", json))
 		return {}

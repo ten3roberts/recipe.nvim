@@ -38,7 +38,7 @@ return {
 			end,
 			on_exit = function(task)
 				throttle.stop()
-				parse(task, nil)
+				parse(task, "auto")
 				quickfix.release_lock(lock)
 			end,
 		}

@@ -50,6 +50,107 @@ local function runnables(bufnr)
 	return result
 end
 
+---@class LocationUri
+---@field targetUri string
+---@field targetRange table
+
+---@param location LocationUri
+---@return Location
+local function convert_location(location)
+	return {
+		lnum = location.targetRange.start.line,
+		col = location.targetRange.start.character,
+		bufnr = vim.uri_to_bufnr(location.targetUri),
+		uri = location.targetUri,
+		end_lnum = location.targetRange["end"].line,
+		end_col = location.targetRange["end"].character,
+	}
+end
+
+---@class CargoArgs
+---@field cargoArgs string[]
+---@field cargoExtraArgs string[]
+---@field executableArgs string[]
+---@field workspaceRoot string
+
+---@class CargoRunnable
+---@field args CargoArgs
+---@field extra_args string[]
+---@field executable_args string[]
+---@field location LocationUri
+---@field label string
+
+---@param v CargoRunnable
+local function cargo_command(v)
+	local cmd = { "cargo" }
+	vim.list_extend(cmd, v.args.cargoArgs)
+	vim.list_extend(cmd, v.args.cargoExtraArgs)
+	table.insert(cmd, "--")
+	vim.list_extend(cmd, v.args.executableArgs)
+
+	local location
+
+	if v.location then
+		location = convert_location(v.location)
+	end
+
+	return Recipe:new({
+		cmd = cmd,
+		cwd = v.args.workspaceRoot,
+		key = v.label,
+		location = location,
+	})
+end
+
+---@param v CargoRunnable
+local function cargo_debug_command(v)
+	local cmd = { "cargo" }
+	vim.list_extend(cmd, v.args.cargoArgs)
+
+	for i, arg in ipairs(cmd) do
+		if arg == "check" then
+			return
+		elseif arg == "run" then
+			cmd[i] = "build"
+		elseif arg == "test" then
+			if not vim.tbl_contains(v.args.executableArgs, "--no-run") then
+				table.insert(v.args.executableArgs, "--no-run")
+			end
+		end
+	end
+
+	if not vim.tbl_contains(v.args.cargoExtraArgs, "--message-format=json") then
+		vim.list_extend(cmd, { "--message-format=json" })
+	end
+	vim.list_extend(cmd, v.args.cargoExtraArgs)
+
+	local location
+
+	if v.location then
+		location = convert_location(v.location)
+	end
+
+	local label
+	local target = v.label:match("run (%S+)") or v.label:match("test (%S+)")
+	if target then
+		label = "debug " .. target
+	else
+		label = "debug" .. v.label
+	end
+
+	return Recipe:new({
+		cmd = cmd,
+		cwd = v.args.workspaceRoot,
+		key = label,
+		location = location,
+		components = {
+			["cargo-dap"] = {
+				args = v.args.executableArgs,
+			},
+		},
+	})
+end
+
 --- Load lsp runnables
 ---@param _ string
 ---@return RecipeStore
@@ -59,36 +160,13 @@ function provider.load(_)
 
 	for _, v in ipairs(results or {}) do
 		if v.kind == "cargo" then
-			local cmd = { "cargo" }
-			vim.list_extend(cmd, v.args.cargoArgs)
-			vim.list_extend(cmd, v.args.cargoExtraArgs)
-			table.insert(cmd, "--")
-			vim.list_extend(cmd, v.args.executableArgs)
-
-			local location
-
-			if v.location then
-				local bufnr = vim.uri_to_bufnr(v.location.targetUri)
-
-				if bufnr ~= -1 then
-					location = {
-						lnum = v.location.targetRange.start.line,
-						col = v.location.targetRange.start.character,
-						bufnr = bufnr,
-						end_lnum = v.location.targetRange["end"].line,
-						end_col = v.location.targetRange["end"].character,
-					}
-				end
-			end
-
-			local recipe = Recipe:new({
-				cmd = cmd,
-				cwd = v.args.workspaceRoot,
-				key = v.label,
-				location = location,
-			})
-
+			local recipe = cargo_command(v)
 			t[recipe.key] = recipe
+
+			local recipe = cargo_debug_command(v)
+			if recipe then
+				t[recipe.key] = recipe
+			end
 		end
 	end
 

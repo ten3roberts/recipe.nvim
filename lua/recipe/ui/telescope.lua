@@ -65,6 +65,7 @@ M.actions = {
 	open_split = M.task_action("open_split", true),
 	open_vsplit = M.task_action("open_vsplit", true),
 	open_float = M.task_action("open_float", true),
+	menu = M.task_action("menu", true),
 	stop = M.task_action("stop", false),
 	spawn = M.task_action("spawn", false),
 }
@@ -76,10 +77,6 @@ function M.pick(opts)
 	local t = {}
 
 	local tasks = lib.load()
-
-	local util = require("recipe.util")
-
-	local now = vim.loop.now()
 
 	for _, task in pairs(tasks) do
 		if not task.recipe.hidden then
@@ -96,7 +93,6 @@ function M.pick(opts)
 		return lib.score(a, now, pos) > lib.score(b, now, pos)
 	end)
 
-	print("Creating picker")
 	pickers
 		.new(opts, {
 			prompt_title = "Recipes",
@@ -121,6 +117,7 @@ function M.pick(opts)
 				actions.select_vertical:replace(M.actions.open_smart)
 				actions.select_tab:replace(M.actions.spawn)
 				map({ "i", "n" }, "<C-d>", M.actions.stop)
+				map({ "i", "n" }, "<C-e>", M.actions.menu)
 				return true
 			end,
 		})

@@ -172,6 +172,10 @@ function Panel:rerender_task(task)
 end
 
 function Panel:render_section(section)
+	if not self.window.bufnr then
+		require("recipe.util").log_error("Panel not mounted")
+		return
+	end
 	local ns_id = self.window.ns_id
 	local bufnr = self.window.bufnr
 

@@ -120,6 +120,8 @@ local TaskState = {
 ---@field code number|nil
 ---@field open_mode TermConfig
 ---@field last_use number|nil
+---@field stdout string[]
+---@field stderr string[]
 local Task = {}
 Task.__index = Task
 
@@ -144,6 +146,9 @@ function Task:stop()
 	end
 end
 
+---@param start integer|nil
+---@param endl integer|nil
+---@return string[]
 function Task:get_output(start, endl)
 	if self.bufnr and api.nvim_buf_is_valid(self.bufnr) then
 		return api.nvim_buf_get_lines(self.bufnr, start or 0, endl or -1, false)
@@ -196,6 +201,8 @@ function Task:new(key, recipe)
 		deps = {},
 		on_exit = {},
 		env = {},
+		stdout = {},
+		stderr = {},
 	}, self)
 end
 
@@ -277,6 +284,34 @@ end
 
 function Task:open_vsplit()
 	self:spawn():focus({ kind = "vsplit", global_terminal = false })
+end
+
+function Task:to_json()
+	local json = self.recipe:to_json()
+
+	vim.fn.setreg('"', json)
+	vim.notify('Recipe copied to register @"\n\n' .. json)
+end
+
+function Task:menu()
+	local func_map = {
+		{ "Spawn", self.spawn },
+		{ "Stop", self.stop },
+		{ "Open", self.open },
+		{ "Open Smart", self.open_smart },
+		{ "Open Split", self.open_split },
+		{ "Open Float", self.open_float },
+		{ "Copy to json", self.to_json },
+	}
+
+	vim.ui.select(func_map, {
+		format_item = function(item)
+			return item[1]
+		end,
+	}, function(item)
+		vim.notify("Selected: " .. item[1])
+		item[2](self)
+	end)
 end
 
 ---@param mode TermConfig|nil
@@ -372,10 +407,18 @@ function Task:spawn()
 		end
 
 		local on_output = components.collect_method(instances, "on_output")
-		local on_stdout = function()
+
+		self.stdout = {}
+		self.stderr = {}
+		local handle_stdout, stdout_cleanup = util.handle_output(self.stdout, 10000)
+		local handle_stderr, stderr_cleanup = util.handle_output(self.stderr, 10000)
+
+		local on_stdout = function(_, lines)
+			handle_stdout(lines)
 			on_output(self)
 		end
-		local on_stderr = function()
+		local on_stderr = function(_, lines)
+			handle_stderr(lines)
 			on_output(self)
 		end
 
@@ -385,10 +428,13 @@ function Task:spawn()
 			self.code = code
 			self.state = TaskState.STOPPED
 
+			stderr_cleanup()
+			stdout_cleanup()
+
 			if code == 0 and config.auto_close and fn.bufloaded(bufnr) == 1 then
 				local win = find_win(bufnr)
 				if win and api.nvim_win_is_valid(win) then
-					api.nvim_win_close(win, {})
+					api.nvim_win_close(win, false)
 				end
 			end
 
@@ -458,8 +504,10 @@ function Task:spawn()
 			})
 
 			if success then
+				assert(j > 0, "Invalid job number")
 				jobnr = j
 			else
+				assert(j, "Invalid error")
 				err = j
 			end
 		end)

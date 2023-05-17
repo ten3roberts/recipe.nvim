@@ -6,6 +6,7 @@ local util = require("recipe.util")
 ---@field col number
 ---@field end_lnum number
 ---@field end_col number
+---@field uri string
 
 ---@class Recipe
 ---@field cmd string|string[]
@@ -67,7 +68,7 @@ end
 ---@param pos Position
 ---@return number|nil
 function Recipe:distance_to(pos)
-	if not self.location or self.location.bufnr ~= pos.bufnr then
+	if not self.location or vim.uri_to_bufnr(self.location.uri) ~= pos.bufnr then
 		return nil
 	end
 
@@ -185,6 +186,30 @@ end
 
 function Recipe:has_component(kind)
 	return self.components[kind] ~= nil
+end
+
+--- Serializes the recipe to json
+function Recipe:to_json()
+	local depends_on = {}
+	for _, v in ipairs(self.depends_on) do
+		table.insert(depends_on, v:to_json())
+	end
+
+	local components = {}
+	for k, v in pairs(self.components) do
+		if config.opts.default_components[k] ~= v then
+			components[k] = v
+		end
+	end
+
+	local cwd = vim.fn.fnamemodify(self.cwd, ":p:~:.")
+	return vim.json.encode({
+		cmd = self.cmd,
+		cwd = cwd ~= "" and cwd or nil,
+		env = self.env,
+		components = vim.tbl_count(components) > 0 and components or nil,
+		depends_on = #depends_on > 0 and depends_on or nil,
+	})
 end
 
 return Recipe

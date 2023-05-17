@@ -326,6 +326,35 @@ function M.scroll_to_end(win)
 	end
 	vim.api.nvim_win_set_cursor(win, { lnum, vim.api.nvim_strwidth(last_line) })
 end
+local function remove_escape_codes(s)
+	-- from: https://stackoverflow.com/questions/48948630/lua-ansi-escapes-pattern
+
+	return s:gsub("[\27\155][][()#;?%d]*[A-PRZcf-ntqry=><~]", ""):gsub("[\r\n\04\08]", "")
+end
+
+function M.handle_output(res, limit)
+	local prev_line = ""
+
+	return function(lines)
+		-- Complete previous line
+		prev_line = prev_line .. lines[1]
+
+		for i = 2, #lines do
+			if #res < limit then
+				local line = remove_escape_codes(prev_line)
+				table.insert(res, line)
+			end
+			prev_line = ""
+			-- Before pushing a new line, invoke the stdout for components
+			prev_line = lines[i]
+		end
+	end, function()
+		if #res < limit then
+			local line = remove_escape_codes(prev_line)
+			table.insert(res, line)
+		end
+	end
+end
 
 ---@class Position
 ---@field bufnr number

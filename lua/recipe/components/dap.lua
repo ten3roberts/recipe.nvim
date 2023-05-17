@@ -10,6 +10,7 @@ return {
 		args = nil,
 		program = nil,
 		justMyCode = true,
+		env = nil,
 	},
 	---@param params DapParams
 	new = function(params)
@@ -30,12 +31,15 @@ return {
 					program = params.program,
 					args = params.args,
 					justMyCode = params.justMyCode,
-					-- env = vim.tbl_extend("keep", opts.env or {}, task.env),
+					env = vim.tbl_extend("keep", params.env or {}, task.env),
 				}
 
 				if dap then
 					vim.notify("Launching dap session: " .. vim.inspect(conf))
-					dap.run(conf)
+					dap.terminate()
+					vim.schedule(function()
+						dap.run(conf)
+					end)
 				else
 					util.log_error("Dap could not be found")
 				end

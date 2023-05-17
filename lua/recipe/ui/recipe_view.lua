@@ -44,6 +44,13 @@ function M:open_vsplit()
 	self:spawn():focus({ kind = "vsplit" })
 end
 
+function M:to_json()
+	local json = self.task.recipe:to_json()
+
+	vim.api.nvim_set_var('@"', json)
+	vim.notify('Recipe copied to register @"')
+end
+
 local task_state_map = {
 	pending = "-",
 	running = "*",
@@ -60,7 +67,7 @@ function M:format()
 		table.insert(t, " ")
 	end
 
-	table.insert(t, self.recipe:format(self.key, 30))
+	table.insert(t, self.task.recipe:format(self.key, 30))
 
 	return table.concat(t, " ")
 end
