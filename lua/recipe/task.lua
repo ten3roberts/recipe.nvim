@@ -146,6 +146,14 @@ function Task:stop()
 	end
 end
 
+function Task:restart()
+	self:attach_callback(function()
+		self:spawn()
+	end)
+
+	self:stop()
+end
+
 ---@param start integer|nil
 ---@param endl integer|nil
 ---@return string[]
@@ -296,6 +304,7 @@ end
 function Task:menu()
 	local func_map = {
 		{ "Spawn", self.spawn },
+		{ "Restart", self.restart },
 		{ "Stop", self.stop },
 		{ "Open", self.open },
 		{ "Open Smart", self.open_smart },
@@ -333,10 +342,6 @@ function Task:focus(mode)
 	else
 		self.deferred_focus = f
 	end
-end
-
-function Task:restart()
-	return self
 end
 
 Task._tostring = Task.format
