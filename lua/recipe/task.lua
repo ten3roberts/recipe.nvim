@@ -476,8 +476,9 @@ function Task:spawn()
 
 		self.env = env
 
-		if vim.fn.isdirectory(recipe.cwd) ~= 1 then
-			util.log_error("No such directory: " .. vim.inspect(recipe.cwd))
+		local cwd = vim.fn.fnamemodify(recipe.cwd, ":p")
+		if vim.fn.isdirectory(cwd) ~= 1 then
+			util.log_error("No such directory: " .. vim.inspect(cwd))
 			on_exit(nil, -1)
 			return
 		end
@@ -499,7 +500,7 @@ function Task:spawn()
 		local jobnr = -1
 		vim.api.nvim_buf_call(self.bufnr, function()
 			local success, j = pcall(fn.termopen, cmd, {
-				cwd = recipe.cwd,
+				cwd = cwd,
 				on_exit = vim.schedule_wrap(on_exit),
 				env = env,
 				width = 80,
@@ -509,7 +510,7 @@ function Task:spawn()
 			})
 
 			if success then
-				assert(j > 0, "Invalid job number")
+				assert(j and j > 0, "Invalid job number")
 				jobnr = j
 			else
 				assert(j, "Invalid error")

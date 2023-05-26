@@ -24,9 +24,9 @@ local function new_previewer()
 		preview_fn = function(self, entry, status)
 			local bufnr = get_bufnr(self, status)
 			---@type Task
-			local value = entry.value
+			local task = entry.value
 
-			local root = value.recipe:display()
+			local root = task.recipe:display()
 
 			local tree = NuiTree({ bufnr = bufnr, nodes = { root } })
 

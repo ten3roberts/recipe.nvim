@@ -27,14 +27,23 @@ local config = require("recipe.config")
 --- Creates a new recipe
 ---@return Recipe
 function Recipe:new(o)
-	local t = {}
-	t.components = o.components or {}
+	local components = o.components or {}
 
 	for k, v in pairs(config.opts.default_components) do
-		if t.components[k] == nil then
-			t.components[k] = v
+		if components[k] == nil then
+			components[k] = v
 		end
 	end
+
+	for k, v in pairs(components) do
+		if v == false then
+			components[k] = nil
+		end
+	end
+
+	local t = {}
+
+	t.components = components
 
 	if o.key == nil then
 		o.key = (type(o.cmd) == "string" and o.cmd or table.concat(o.cmd, " ")) or util.random_name()
@@ -52,7 +61,7 @@ function Recipe:new(o)
 		table.insert(t.depends_on, Recipe:new(dep))
 	end
 
-	t.cwd = o.cwd or vim.fn.getcwd()
+	t.cwd = vim.fn.fnamemodify(o.cwd or vim.fn.getcwd(), ":p:~")
 	t.priority = o.priority or 1000
 	return setmetatable(t, self)
 end
