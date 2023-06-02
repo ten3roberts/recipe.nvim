@@ -42,19 +42,39 @@ local function new_previewer()
 end
 
 function M.task_action(method, close)
-	return function(prompt)
-		if close then
-			actions.close(prompt)
+	return function(prompt_bufnr)
+		local selection = {}
+
+		local util = require("recipe.util")
+		local picker = action_state.get_current_picker(prompt_bufnr)
+		if not picker then
+			util.error("Failed go get current picker")
+			return
 		end
 
-		local sel = action_state.get_selected_entry()
-		---@type Task
-		local value = sel.value
+		if #picker:get_multi_selection() > 0 then
+			for _, item in ipairs(picker:get_multi_selection()) do
+				table.insert(selection, item)
+			end
+		else
+			table.insert(selection, action_state.get_selected_entry())
+		end
 
-		value[method](value)
+		---@type Task
+
+		vim.schedule(function()
+			for _, sel in ipairs(selection) do
+				local value = sel.value
+				value[method](value)
+			end
+		end)
+
+		if picker and close then
+			actions.close(prompt_bufnr)
+		end
+
 		if not close then
-			local current_picker = action_state.get_current_picker(prompt)
-			current_picker:refresh()
+			picker:refresh()
 		end
 	end
 end
@@ -67,7 +87,7 @@ M.actions = {
 	open_float = M.task_action("open_float", true),
 	menu = M.task_action("menu", true),
 	stop = M.task_action("stop", false),
-	spawn = M.task_action("spawn", false),
+	spawn = M.task_action("spawn", true),
 	restart = M.task_action("restart", true),
 }
 
