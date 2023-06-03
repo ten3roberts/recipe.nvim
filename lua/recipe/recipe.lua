@@ -198,6 +198,7 @@ function Recipe:has_component(kind)
 end
 
 --- Serializes the recipe to json
+---@return string
 function Recipe:to_json()
 	local depends_on = {}
 	for _, v in ipairs(self.depends_on) do

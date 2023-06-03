@@ -428,6 +428,7 @@ function Task:spawn()
 		end
 
 		local start_time = uv.now()
+
 		local function on_exit(_, code)
 			self.jobnr = nil
 			self.code = code
@@ -521,6 +522,10 @@ function Task:spawn()
 		if prev_win then
 			vim.notify("Replacing previous terminal for task")
 			api.nvim_win_set_buf(prev_win, self.bufnr)
+
+			if config.opts.scroll_to_end then
+				util.scroll_to_end(prev_win)
+			end
 		end
 
 		if jobnr <= 0 then
