@@ -91,13 +91,45 @@ M.actions = {
 	restart = M.task_action("restart", true),
 }
 
--- our picker function: colors
+---@param tasks Task[]
+local function picker(opts, tasks)
+	return pickers.new(opts, {
+		prompt_title = "Recipes",
+		previewer = new_previewer(),
+		finder = finders.new_table({
+			results = tasks,
+			entry_maker = function(entry)
+				---@type Task
+				local fmt = entry:format()
+
+				return {
+					value = entry,
+					display = fmt,
+					ordinal = fmt,
+				}
+			end,
+		}),
+		sorter = conf.generic_sorter(opts),
+		attach_mappings = function(_, map)
+			actions.select_default:replace(M.actions.open)
+			actions.select_horizontal:replace(M.actions.open_split)
+			actions.select_vertical:replace(M.actions.open_smart)
+			actions.select_tab:replace(M.actions.spawn)
+			map({ "i", "n" }, "<C-r>", M.actions.restart)
+			map({ "i", "n" }, "<C-f>", M.actions.open_float)
+			map({ "i", "n" }, "<C-d>", M.actions.stop)
+			map({ "i", "n" }, "<C-e>", M.actions.menu)
+			return true
+		end,
+	})
+end
+
 function M.pick(opts)
 	opts = opts or {}
 
 	local t = {}
 
-	local tasks = lib.load()
+	local tasks = lib.load(1000)
 
 	for _, task in pairs(tasks) do
 		if not task.recipe.hidden then
@@ -105,46 +137,48 @@ function M.pick(opts)
 		end
 	end
 
+	local util = require("recipe.util")
+	local pos = util.get_position()
 	local now = vim.loop.now()
+
+	table.sort(t, function(a, b)
+		return lib.score(a, now, pos) > lib.score(b, now, pos)
+	end)
+	picker(opts, t):find()
+end
+
+function M.pick_local(opts)
+	opts = opts or {}
+
+	local t = {}
+
+	local tasks = lib.load(1000)
+
+	local current_bufnr = vim.api.nvim_get_current_buf()
+
+	for _, task in pairs(tasks) do
+		if not task.recipe.hidden then
+			table.insert(t, task)
+		end
+	end
+
+	t = vim.tbl_filter(
+		---@param task Task
+		function(task)
+			local bufnr = task.recipe:bufnr()
+			return bufnr == current_bufnr
+		end,
+		t
+	)
 
 	local util = require("recipe.util")
 	local pos = util.get_position()
 
 	table.sort(t, function(a, b)
-		return lib.score(a, now, pos) > lib.score(b, now, pos)
+		return a.recipe:distance_to(pos) > b.recipe:distance_to(pos)
 	end)
 
-	pickers
-		.new(opts, {
-			prompt_title = "Recipes",
-			previewer = new_previewer(),
-			finder = finders.new_table({
-				results = t,
-				entry_maker = function(entry)
-					---@type Task
-					local fmt = entry:format()
-
-					return {
-						value = entry,
-						display = fmt,
-						ordinal = fmt,
-					}
-				end,
-			}),
-			sorter = conf.generic_sorter(opts),
-			attach_mappings = function(_, map)
-				actions.select_default:replace(M.actions.open)
-				actions.select_horizontal:replace(M.actions.open_split)
-				actions.select_vertical:replace(M.actions.open_smart)
-				actions.select_tab:replace(M.actions.spawn)
-				map({ "i", "n" }, "<C-r>", M.actions.restart)
-				map({ "i", "n" }, "<C-f>", M.actions.open_float)
-				map({ "i", "n" }, "<C-d>", M.actions.stop)
-				map({ "i", "n" }, "<C-e>", M.actions.menu)
-				return true
-			end,
-		})
-		:find()
+	picker(opts, t):find()
 end
 
 return M

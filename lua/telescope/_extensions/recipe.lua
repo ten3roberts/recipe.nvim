@@ -5,5 +5,6 @@ return require("telescope").register_extension({
 	end,
 	exports = {
 		pick_recipe = async.void(require("recipe.ui.telescope").pick),
+		pick_local = async.void(require("recipe.ui.telescope").pick_local),
 	},
 })

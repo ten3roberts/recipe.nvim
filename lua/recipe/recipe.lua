@@ -74,6 +74,11 @@ function Recipe:add_component(type, value)
 	return self
 end
 
+---@return integer|nil
+function Recipe:bufnr()
+	return self.location and vim.uri_to_bufnr(self.location.uri)
+end
+
 ---@param pos Position
 ---@return number|nil
 function Recipe:distance_to(pos)

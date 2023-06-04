@@ -56,7 +56,7 @@ function M.set(lock, recipe, compiler, data, open)
 
 	-- A lock is successfully held
 	if lock then
-		lock.expiration = cur_time + 10
+		lock.expiration = cur_time + 10000
 
 		local old_cwd = vim.fn.getcwd()
 		api.nvim_set_current_dir(recipe.cwd)
