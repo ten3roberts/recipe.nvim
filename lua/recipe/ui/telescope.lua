@@ -129,7 +129,7 @@ function M.pick(opts)
 
 	local t = {}
 
-	local tasks = lib.load(1000)
+	local tasks = lib.load()
 
 	for _, task in pairs(tasks) do
 		if not task.recipe.hidden then
@@ -152,7 +152,7 @@ function M.pick_local(opts)
 
 	local t = {}
 
-	local tasks = lib.load(1000)
+	local tasks = lib.load()
 
 	local current_bufnr = vim.api.nvim_get_current_buf()
 

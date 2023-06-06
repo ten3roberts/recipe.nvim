@@ -163,6 +163,17 @@ function Recipe:display()
 		tree.Node({ text = line({ ident("cwd"), text(": "), text(self.cwd, "String") }) }, {}),
 	}
 
+	if self.env and not vim.tbl_isempty(self.env) then
+		local values = {}
+		for k, v in pairs(self.env) do
+			table.insert(values, tree.Node({ text = field(k, v) }))
+		end
+
+		if #values ~= 0 then
+			table.insert(nodes, tree.Node({ text = ident("env") }, values))
+		end
+	end
+
 	local components = {}
 	for k, v in pairs(self.components) do
 		table.insert(

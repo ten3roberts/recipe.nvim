@@ -66,8 +66,8 @@ M.opts = {
 
 	---@type ProviderDef[]
 	providers = {
-		{ name = "lsp" },
 		{ name = "recipes" },
+		{ name = "lsp" },
 		{ name = "make" },
 		{ name = "ft" },
 		{ name = "custom" },

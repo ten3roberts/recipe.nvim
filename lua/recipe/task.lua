@@ -379,7 +379,7 @@ function Task:spawn()
 	self.bufnr = bufnr
 	local recipe = self.recipe
 
-	local env = vim.deepcopy(self.recipe.env) or {}
+	local env = vim.deepcopy(self.recipe.env or {})
 	if vim.tbl_count(env) == 0 then
 		env.__type = "table"
 	end
@@ -489,7 +489,7 @@ function Task:spawn()
 		end
 
 		local cmd = self.recipe.cmd
-		vim.notify("Running command: " .. vim.inspect(cmd))
+		vim.notify("Running command: " .. vim.inspect(cmd) .. "\nEnv: " .. vim.inspect(env))
 		if not recipe.components.plain then
 			if type(cmd) == "string" then
 				cmd = cmd:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)

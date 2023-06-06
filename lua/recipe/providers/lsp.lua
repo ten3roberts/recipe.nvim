@@ -34,7 +34,7 @@ local function runnables(bufnr)
 
 						return nil
 					end,
-					2000,
+					1500,
 					function()
 						util.warn("LSP runnables timed out for " .. client.name)
 					end
@@ -135,7 +135,7 @@ local function cargo_debug_command(v)
 	if target then
 		label = "debug " .. target
 	else
-		label = "debug" .. v.label
+		label = "debug " .. v.label
 	end
 
 	return Recipe:new({
