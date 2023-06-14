@@ -175,7 +175,7 @@ function M.pick_local(opts)
 	local pos = util.get_position()
 
 	table.sort(t, function(a, b)
-		return a.recipe:distance_to(pos) > b.recipe:distance_to(pos)
+		return a.recipe:distance_to(pos) < b.recipe:distance_to(pos)
 	end)
 
 	picker(opts, t):find()

@@ -131,9 +131,15 @@ local function cargo_debug_command(v)
 	end
 
 	local label
-	local target = v.label:match("run (%S+)") or v.label:match("test (%S+)")
-	if target then
-		label = "debug " .. target
+	local run_target = v.label:match("run (%S+)")
+	local test_target = v.label:match("test (%S+)")
+	local test_mod_target = v.label:match("test%-mod (%S+)")
+	if run_target then
+		label = "debug " .. run_target
+	elseif test_target then
+		label = "debug-test " .. test_target
+	elseif test_mod_target then
+		label = "debug-mod " .. test_mod_target
 	else
 		label = "debug " .. v.label
 	end
