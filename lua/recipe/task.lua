@@ -126,8 +126,9 @@ local Task = {}
 Task.__index = Task
 
 function Task:attach_callback(cb)
+	require("recipe.logger").info("state: ", self.state)
 	if self.state == TaskState.STOPPED then
-		vim.notify("attach_callback ready")
+		require("recipe.logger").info("attach_callback ready")
 		vim.schedule(function()
 			cb(self, self.code)
 		end)
@@ -355,6 +356,9 @@ function Task:spawn()
 		return self
 	end
 
+	local logger = require("recipe.logger")
+	logger.info("Spawning task " .. self.key)
+
 	self.data = {}
 	self.deps = {}
 	self.state = TaskState.PENDING
@@ -386,7 +390,7 @@ function Task:spawn()
 
 	local uv = vim.loop
 
-	local instances = components.instantiate(recipe)
+	local instances = components.instantiate(self)
 
 	async.run(function()
 		--- Run dependencies
@@ -394,6 +398,7 @@ function Task:spawn()
 		local deps = {}
 		local err
 		local lib = require("recipe.lib")
+
 		for _, v in ipairs(recipe.depends_on or {}) do
 			local child = lib.insert_task(v.key, v):spawn()
 
@@ -408,6 +413,7 @@ function Task:spawn()
 
 		-- Await all dependencies
 		if #deps > 0 then
+			logger.fmt_info("Waiting for %d dependencies to finish", #deps)
 			async.util.join(deps)
 		end
 
@@ -430,6 +436,7 @@ function Task:spawn()
 		local start_time = uv.now()
 
 		local function on_exit(_, code)
+			logger.fmt_info("Task %s exited", self.key)
 			self.jobnr = nil
 			self.code = code
 			self.state = TaskState.STOPPED
@@ -455,7 +462,8 @@ function Task:spawn()
 				vim.notify(msg, level)
 			end
 
-			for _, cb in ipairs(self.on_exit) do
+			for i, cb in ipairs(self.on_exit) do
+				logger.fmt_info("Running on_exit callback %d", i)
 				cb(self, code)
 			end
 
@@ -484,12 +492,13 @@ function Task:spawn()
 			return
 		end
 
-		for _, hook in ipairs(config.opts.hooks.pre) do
+		for i, hook in ipairs(config.opts.hooks.pre) do
+			logger.fmt_info("Running pre hook %d", i)
 			hook(recipe)
 		end
 
 		local cmd = self.recipe.cmd
-		vim.notify("Running command: " .. vim.inspect(cmd) .. "\nEnv: " .. vim.inspect(env))
+		-- logger.fmt_info("Running command: %q\nenv: %s", vim.inspect(cmd), vim.inspect(env))
 		if not recipe.components.plain then
 			if type(cmd) == "string" then
 				cmd = cmd:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)

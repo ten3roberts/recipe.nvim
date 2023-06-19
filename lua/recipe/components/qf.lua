@@ -19,14 +19,16 @@ return {
 	},
 
 	---@param params QfParams
-	new = function(params)
+	new = function(task, params)
 		local lock = nil
 
-		local compiler = params.compiler
+		local compiler = params.compiler or util.get_compiler(task.recipe:fmt_cmd())
+		if not compiler then
+			return {}
+		end
 
 		---@param task Task
 		local function parse(task, open)
-			local compiler = compiler or util.get_compiler(task.recipe:fmt_cmd())
 			local lines = task:get_output(0, params.max_lines)
 			lock = quickfix.set(lock, task.recipe, compiler, lines, open)
 		end

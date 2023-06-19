@@ -38,12 +38,13 @@ function M.get(name)
 end
 
 --- Instantiates all components
-function M.instantiate(recipe)
+---@param task Task
+function M.instantiate(task)
 	local t = {}
-	for k, v in pairs(recipe.components) do
+	for k, v in pairs(task.recipe.components) do
 		local template = M.get(k)
 		if template then
-			local instance = template.new(vim.tbl_extend("force", template.params, v))
+			local instance = template.new(task, vim.tbl_extend("force", template.params, v))
 			table.insert(t, instance)
 		end
 	end

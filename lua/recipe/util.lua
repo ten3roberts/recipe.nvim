@@ -49,7 +49,7 @@ end
 ---@param open boolean|nil
 function M.vim_qf(title, compiler, data, open)
 	if not open then
-		vim.fn.setqflist({}, "r", {})
+		vim.fn.setqflist({}, "r", { items = {} })
 		vim.cmd("cclose")
 		return
 	end

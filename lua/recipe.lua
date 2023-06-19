@@ -27,8 +27,8 @@ end
 ---@param name string
 ---@param recipe Recipe
 function M.insert(name, recipe)
-	local t = config.make_recipe(recipe)
-	-- __recipes[name] = t
+	local recipe = M.make_recipe(recipe)
+	return lib.insert_task(name, M.Recipe:new(recipe))
 end
 
 M.stop_all = lib.stop_all

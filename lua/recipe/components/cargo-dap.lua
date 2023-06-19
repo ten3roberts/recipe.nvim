@@ -61,7 +61,7 @@ return {
 		env = nil,
 	},
 	---@param params DapParams
-	new = function(params)
+	new = function(_, params)
 		return {
 			on_exit = function(task)
 				if task.code ~= 0 then
