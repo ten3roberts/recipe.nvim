@@ -1,3 +1,4 @@
+local logger = require("recipe.logger")
 local util = require("recipe.util")
 local api = vim.api
 local uv = vim.loop
@@ -12,6 +13,12 @@ local qf_lock = nil
 local lock_id = 0
 
 local M = {}
+
+local function get_change_tick()
+	local change_tick = vim.fn.getqflist({ changedtick = 1 }).changedtick
+	require("recipe.logger").fmt_info("Change tick: %d", change_tick)
+	return change_tick
+end
 
 ---@return Lock|nil
 function M.acquire_lock(force)
@@ -38,16 +45,37 @@ function M.release_lock(lock)
 	end
 end
 
+--- Tracks the change tick that we have caused to determine if another process has set the quickfix.
+---
+--- If so, we should not set the quickfix list and prefer the other process's changes.
+---
+--- A common example of this is `:grep`, `lsp`, `telescope`.
+local quickfix_change_tick = nil
+
 ---@param lock Lock|nil
 ---@param recipe Recipe
 ---@param data string[]
 ---@param open boolean|nil
+---@param conservative boolean|nil
 ---@return Lock|nil
-function M.set(lock, recipe, compiler, data, open)
+function M.set(lock, recipe, compiler, data, open, conservative)
 	--- Refresh lock
 
 	local cur_time = uv.now()
 	-- If lock is eol attempt to reaquire
+	local external_change_tick = get_change_tick()
+
+	if conservative and quickfix_change_tick and quickfix_change_tick ~= external_change_tick then
+		logger.warn(
+			string.format(
+				"[%s] Quickfix changed externally %d => %d",
+				recipe.key,
+				quickfix_change_tick,
+				external_change_tick
+			)
+		)
+	end
+
 	if not lock or cur_time > lock.expiration then
 		M.release_lock(lock)
 
@@ -61,8 +89,13 @@ function M.set(lock, recipe, compiler, data, open)
 		local old_cwd = vim.fn.getcwd()
 		api.nvim_set_current_dir(recipe.cwd)
 		util.qf(recipe:fmt_cmd(), compiler, data, open)
+		logger.fmt_info("%s %s wrote to quickfix list", recipe.key, recipe.label or "<no label>")
 		api.nvim_set_current_dir(old_cwd)
 	end
+
+	local change_tick = get_change_tick()
+	logger.fmt_info("New change tick: %d", change_tick)
+	quickfix_change_tick = change_tick
 
 	return lock
 end

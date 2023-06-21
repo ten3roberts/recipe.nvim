@@ -31,12 +31,6 @@ function M.score(task, now, pos)
 		score = score + 100 + math.max(100 - math.max(dist, 0), 0)
 	end
 
-	if task.state == "running" then
-		score = score + 10000
-	elseif task.state == "pending" then
-		score = score + 500
-	end
-
 	return score
 end
 

@@ -28,19 +28,20 @@ return {
 		end
 
 		---@param task Task
-		local function parse(task, open)
+		local function parse(task, open, conservative)
 			local lines = task:get_output(0, params.max_lines)
-			lock = quickfix.set(lock, task.recipe, compiler, lines, open)
+			lock = quickfix.set(lock, task.recipe, compiler, lines, open, conservative)
 		end
+
 		local throttle = util.throttle(parse, params.throttle)
 
 		return {
 			on_output = function(task)
-				throttle(task, false)
+				throttle(task, false, true)
 			end,
 			on_exit = function(task)
 				throttle.stop()
-				parse(task, "auto")
+				parse(task, "auto", false)
 				quickfix.release_lock(lock)
 			end,
 		}

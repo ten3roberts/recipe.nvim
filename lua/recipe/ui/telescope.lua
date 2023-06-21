@@ -147,6 +147,29 @@ function M.pick(opts)
 	picker(opts, t):find()
 end
 
+function M.pick_running(opts)
+	opts = opts or {}
+
+	local t = {}
+
+	local tasks = lib.load()
+
+	for _, task in pairs(tasks) do
+		if not task.recipe.hidden and task.state == "running" then
+			table.insert(t, task)
+		end
+	end
+
+	local util = require("recipe.util")
+	local pos = util.get_position()
+	local now = vim.loop.now()
+
+	table.sort(t, function(a, b)
+		return lib.score(a, now, pos) > lib.score(b, now, pos)
+	end)
+	picker(opts, t):find()
+end
+
 function M.pick_local(opts)
 	opts = opts or {}
 

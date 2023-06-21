@@ -34,8 +34,8 @@ function Panel:new()
 		},
 	})
 
-	split:on("BufHidden", function()
-		vim.notify("Panel hidden")
+	split:on({ "WinClosed", "BufHidden" }, function(o)
+		vim.notify("Panel hidden" .. vim.inspect(o))
 		active_panels[split.bufnr] = nil
 	end, {})
 
