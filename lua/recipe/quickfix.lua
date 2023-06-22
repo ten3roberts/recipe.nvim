@@ -65,7 +65,7 @@ function M.set(lock, recipe, compiler, data, open, conservative)
 	-- If lock is eol attempt to reaquire
 	local external_change_tick = get_change_tick()
 
-	if conservative and quickfix_change_tick and quickfix_change_tick ~= external_change_tick then
+	if quickfix_change_tick and quickfix_change_tick ~= external_change_tick then
 		logger.warn(
 			string.format(
 				"[%s] Quickfix changed externally %d => %d",
@@ -74,6 +74,9 @@ function M.set(lock, recipe, compiler, data, open, conservative)
 				external_change_tick
 			)
 		)
+		if conservative then
+			return
+		end
 	end
 
 	if not lock or cur_time > lock.expiration then

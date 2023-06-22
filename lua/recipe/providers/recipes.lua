@@ -5,6 +5,7 @@ local Recipe = require("recipe.recipe")
 ---@class RecipesProvider : Provider
 local provider = {
 	memo = util.memoize_files(vim.secure.read),
+	discovered = {},
 }
 
 ---@return RecipeStore
@@ -114,8 +115,23 @@ end
 ---@param path string
 ---@return RecipeStore
 function provider.load(path)
+	local logger = require("recipe.logger")
 	local config = require("recipe.config")
-	local recipes = (provider.memo)(path .. "/" .. config.opts.recipes_file, parse_recipes)
+	local current = path .. "/" .. config.opts.recipes_file
+	provider.discovered = vim.tbl_filter(function(v)
+		return v ~= current
+	end, provider.discovered)
+
+	table.insert(provider.discovered, current)
+
+	local recipes = {}
+	for i, recipes_file in ipairs(provider.discovered) do
+		local res = (provider.memo)(path .. "/" .. config.opts.recipes_file, parse_recipes)
+		logger.fmt_info("Loaded recipes from %d:[%s]: %d", i, recipes_file, vim.tbl_count(res))
+
+		recipes = vim.tbl_extend("force", recipes, res)
+	end
+
 	return recipes
 end
 
