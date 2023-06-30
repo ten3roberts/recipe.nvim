@@ -36,15 +36,22 @@ function M.load(timeout)
 			end
 			local prio = def.priority or math.ceil(1000 / i)
 
+			local logger = require("recipe.logger")
 			table.insert(futures, function()
+				logger.fmt_debug("Provider: %s priority: %d", def.name, prio)
 				for k, v in pairs(provider.load(path)) do
 					local existing = result[k]
 					-- If there are duplicate keys, prefer the highest priority
 					if not existing or existing.priority < prio then
-						v.source = def.name
+						v.source = v.source or def.name
+
+						logger.fmt_debug("Loaded recipe %s from %s", k, v.source)
+						if existing then
+							logger.fmt_debug("Overriding recipe %s from %s", k, existing.source)
+						end
 						v.priority = prio
 						-- Make sure name exists
-						v.key = v.key or k
+						v.label = v.label or k
 						result[k] = v
 					end
 				end

@@ -134,14 +134,14 @@ function M.pick()
 
 		local max_len = 0
 		for _, v in ipairs(items) do
-			max_len = math.max(#(v.recipe.key or ""), max_len)
+			max_len = math.max(#(v.recipe.label or ""), max_len)
 		end
 
 		local opts = {
 			format_item = function(task)
-				local pad = string.rep(" ", math.max(max_len - #(task.recipe.key or "")))
+				local pad = string.rep(" ", math.max(max_len - #(task.recipe.label or "")))
 
-				return (lib.get_task(task.recipe.key) and "*" or " ") .. " " .. task.recipe:format(pad)
+				return (lib.get_task(task.recipe.label) and "*" or " ") .. " " .. task.recipe:format(pad)
 			end,
 		}
 
@@ -155,10 +155,10 @@ function M.pick()
 				return
 			end
 
-			local f = recipe_frecency[recipe.key] or { uses = 0, last_use = 0 }
+			local f = recipe_frecency[recipe.label] or { uses = 0, last_use = 0 }
 			f.uses = f.uses + 1
 			f.last_use = vim.loop.now()
-			recipe_frecency[recipe.key] = f
+			recipe_frecency[recipe.label] = f
 
 			M.execute(recipe, {})
 		end)

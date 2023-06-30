@@ -53,14 +53,14 @@ local function parse_recipes(data, path)
 		end
 
 		local recipe = {
-			key = key,
-			source = vim.fn.fnamemodify(path, ":p:."),
+			label = key,
+			source = nil,
 			depends_on = {},
 		}
 
-		if not value.cmd then
-			return nil, "Missing field `cmd`"
-		end
+		-- if not value.cmd then
+		-- 	return nil, "Missing field `cmd`"
+		-- end
 
 		recipe.cmd = value.cmd
 
@@ -125,11 +125,16 @@ function provider.load(path)
 	table.insert(provider.discovered, current)
 
 	local recipes = {}
-	for i, recipes_file in ipairs(provider.discovered) do
-		local res = (provider.memo)(path .. "/" .. config.opts.recipes_file, parse_recipes)
-		logger.fmt_info("Loaded recipes from %d:[%s]: %d", i, recipes_file, vim.tbl_count(res))
+	for i, path in ipairs(provider.discovered) do
+		local source = "󱅾 " .. vim.fn.fnamemodify(path, ":p:.:h")
+		require("recipe.logger").fmt_info("Loading recipes from %s: %s", path, source)
 
-		recipes = vim.tbl_extend("force", recipes, res)
+		local res = (provider.memo)(path, parse_recipes)
+		logger.fmt_info("Loaded recipes from %d:[%s]: %d", i, path, vim.tbl_count(res))
+		for k, v in pairs(res) do
+			v.source = source
+			recipes[k] = v
+		end
 	end
 
 	return recipes

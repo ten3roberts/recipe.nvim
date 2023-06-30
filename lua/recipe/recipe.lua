@@ -9,12 +9,12 @@ local util = require("recipe.util")
 ---@field uri string
 
 ---@class Recipe
----@field cmd string|string[]
+---@field cmd string|string[]|nil
 ---@field hidden boolean
 ---@field cwd string
 ---@field env table<string, string>
 ---@field source string
----@field key string
+---@field label string
 ---@field components table<string, any>
 ---@field depends_on Recipe[]
 ---@field priority number
@@ -45,15 +45,15 @@ function Recipe:new(o)
 
 	t.components = components
 
-	if o.key == nil then
-		o.key = (type(o.cmd) == "string" and o.cmd or table.concat(o.cmd, " ")) or util.random_name()
+	if o.label == nil then
+		o.label = (type(o.cmd) == "string" and o.cmd or table.concat(o.cmd, " ")) or util.random_name()
 	end
 
 	t.source = o.source or "user"
 	t.env = o.env
 	t.hidden = o.hidden
 	t.cmd = o.cmd
-	t.key = o.key
+	t.label = o.label
 	t.location = o.location
 
 	t.depends_on = {}
@@ -101,7 +101,7 @@ function Recipe:fmt_cmd()
 	elseif type(cmd) == "string" then
 		return cmd
 	else
-		error("Invalid type of cmd")
+		return "<virtual>"
 	end
 end
 local line = require("nui.line")
@@ -127,7 +127,7 @@ function Recipe:display_cmd()
 		line:append(cmd, "String")
 		line:append('"', "String")
 	else
-		error("Invalid type")
+		line:append("<virtual>", "Comment")
 	end
 
 	return line
@@ -145,7 +145,7 @@ local function display_location(location)
 	return {
 		tree.Node({ text = ident("start") }, {
 			tree.Node({
-				text = field("bufnr", text(location.bufnr .. " " .. vim.fn.bufname(location.bufnr) or "<no buffer>")),
+				text = field("bufnr", text(location.bufnr .. " " .. (vim.fn.bufname(location.bufnr) or "<no buffer>"))),
 			}, {}),
 			tree.Node({ text = field("lnum", tostring(location.lnum)) }, {}),
 			tree.Node({ text = field("col", tostring(location.col)) }, {}),
@@ -157,7 +157,7 @@ end
 
 function Recipe:display()
 	local nodes = {
-		tree.Node({ text = line({ ident("name"), text(": "), text(self.key, "String") }) }, {}),
+		tree.Node({ text = line({ ident("label"), text(": "), text(self.label, "String") }) }, {}),
 		tree.Node({ text = self:display_cmd() }, {}),
 		tree.Node({ text = line({ ident("source"), text(": "), text(self.source, "String") }) }, {}),
 		tree.Node({ text = line({ ident("cwd"), text(": "), text(self.cwd, "String") }) }, {}),
@@ -199,7 +199,7 @@ function Recipe:display()
 		table.insert(nodes, tree.Node({ text = ident("location") }, display_location(self.location)))
 	end
 
-	return tree.Node({ text = text(self.key) }, nodes)
+	return tree.Node({ text = text(self.label) }, nodes)
 end
 
 function Recipe:format(key, padding)

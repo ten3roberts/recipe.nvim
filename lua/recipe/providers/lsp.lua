@@ -167,11 +167,11 @@ function provider.load(_)
 	for _, v in ipairs(results or {}) do
 		if v.kind == "cargo" then
 			local recipe = cargo_command(v)
-			t[recipe.key] = recipe
+			t[recipe.label] = recipe
 
 			local recipe = cargo_debug_command(v)
 			if recipe then
-				t[recipe.key] = recipe
+				t[recipe.label] = recipe
 			end
 		end
 	end

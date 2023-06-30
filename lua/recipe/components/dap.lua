@@ -27,7 +27,7 @@ return {
 				local conf = {
 					type = params.adapter or vim.o.ft,
 					request = "launch",
-					name = "Recipe " .. task.recipe.key,
+					name = "Recipe " .. task.recipe.label,
 					program = params.program,
 					args = params.args,
 					justMyCode = params.justMyCode,

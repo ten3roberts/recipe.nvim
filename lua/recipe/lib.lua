@@ -74,7 +74,7 @@ end
 ---@param recipe Recipe
 function M.insert_task(key, recipe)
 	local Task = require("recipe.task")
-	local key = key or recipe.key
+	local key = key or recipe.label
 	local task = tasks[key]
 	if not task then
 		task = Task:new(key, recipe)

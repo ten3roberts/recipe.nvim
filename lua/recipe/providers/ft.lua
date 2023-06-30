@@ -12,7 +12,7 @@ function M.setup(filetypes)
 
 		for k, v in pairs(v) do
 			v = Recipe:new(v)
-			v.key = k
+			v.label = k
 			v.source = "ft"
 			t[k] = v
 		end

@@ -69,7 +69,7 @@ function M.set(lock, recipe, compiler, data, open, conservative)
 		logger.warn(
 			string.format(
 				"[%s] Quickfix changed externally %d => %d",
-				recipe.key,
+				recipe.label,
 				quickfix_change_tick,
 				external_change_tick
 			)
@@ -92,7 +92,7 @@ function M.set(lock, recipe, compiler, data, open, conservative)
 		local old_cwd = vim.fn.getcwd()
 		api.nvim_set_current_dir(recipe.cwd)
 		util.qf(recipe:fmt_cmd(), compiler, data, open)
-		logger.fmt_info("%s %s wrote to quickfix list", recipe.key, recipe.label or "<no label>")
+		logger.fmt_info("%s %s wrote to quickfix list", recipe.label, recipe.label or "<no label>")
 		api.nvim_set_current_dir(old_cwd)
 	end
 

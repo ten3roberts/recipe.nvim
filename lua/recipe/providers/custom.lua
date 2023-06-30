@@ -7,7 +7,7 @@ local M = { recipes = {} }
 function M.setup(recipes)
 	for k, v in pairs(recipes) do
 		v = Recipe:new(v)
-		v.key = k
+		v.label = k
 		v.source = "custom"
 		M.recipes[k] = v
 	end

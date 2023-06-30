@@ -136,15 +136,30 @@ function Task:attach_callback(cb)
 		table.insert(self.on_exit, cb)
 	end
 end
-
-function Task:stop()
+function Task:stop_async()
+	local t = {}
 	for _, dep in ipairs(self.deps) do
-		dep:stop()
+		table.insert(t, function()
+			dep:stop_async()
+		end)
+	end
+
+	if #t > 0 then
+		async.util.join(t)
 	end
 
 	if self.jobnr then
 		fn.jobstop(self.jobnr)
 	end
+
+	self:join()
+end
+
+---@async
+function Task:stop()
+	async.run(function()
+		self:stop_async()
+	end)
 end
 
 function Task:restart()
@@ -366,7 +381,7 @@ function Task:spawn()
 	---@type TermConfig
 	-- local term_config = vim.tbl_deep_extend("force", require("recipe.config").opts.term, {})
 
-	local key = self.recipe.key
+	local key = self.recipe.label
 
 	local prev_buf = self.bufnr
 	local prev_win = prev_buf and find_win(prev_buf)
@@ -400,13 +415,13 @@ function Task:spawn()
 		local lib = require("recipe.lib")
 
 		for _, v in ipairs(recipe.depends_on or {}) do
-			local child = lib.insert_task(v.key, v):spawn()
+			local child = lib.insert_task(v.label, v):spawn()
 
 			table.insert(self.deps, child)
 			table.insert(deps, function()
 				local _, code = child:join()
 				if code ~= 0 then
-					err = string.format("%s exited with code: %s", v.key, code)
+					err = string.format("%s exited with code: %s", v.label, code)
 				end
 			end)
 		end
@@ -498,35 +513,50 @@ function Task:spawn()
 		end
 
 		local cmd = self.recipe.cmd
+
+		local function replace_expand(s)
+			return s:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)
+		end
+
 		-- logger.fmt_info("Running command: %q\nenv: %s", vim.inspect(cmd), vim.inspect(env))
 		if not recipe.components.plain then
 			if type(cmd) == "string" then
-				cmd = cmd:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)
+				cmd = replace_expand(cmd)
+			elseif type(cmd) == "table" then
+				cmd = vim.tbl_map(replace_expand, cmd)
 			end
 		end
 
 		local err = ""
 
 		local jobnr = -1
-		vim.api.nvim_buf_call(self.bufnr, function()
-			local success, j = pcall(fn.termopen, cmd, {
-				cwd = cwd,
-				on_exit = vim.schedule_wrap(on_exit),
-				env = env,
-				width = 80,
-				height = 24,
-				on_stdout = on_stdout,
-				on_stderr = on_stderr,
-			})
 
-			if success then
-				assert(j and j > 0, "Invalid job number")
-				jobnr = j
-			else
-				assert(j, "Invalid error")
-				err = j
-			end
-		end)
+		if cmd then
+			vim.api.nvim_buf_call(self.bufnr, function()
+				local success, j = pcall(fn.termopen, cmd, {
+					cwd = cwd,
+					on_exit = vim.schedule_wrap(on_exit),
+					env = env,
+					width = 80,
+					height = 24,
+					on_stdout = on_stdout,
+					on_stderr = on_stderr,
+				})
+
+				if success then
+					assert(j and j > 0, "Invalid job number")
+					jobnr = j
+				else
+					assert(j, "Invalid error")
+					err = j
+				end
+			end)
+		else
+			logger.fmt_info("Virtual command")
+			vim.schedule(function()
+				on_exit(nil, 0)
+			end)
+		end
 
 		if prev_win then
 			vim.notify("Replacing previous terminal for task")
