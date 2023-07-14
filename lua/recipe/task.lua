@@ -353,7 +353,11 @@ function Task:focus(mode)
 		active_buffers[self.bufnr] = self.bufnr
 	end
 
-	if self.bufnr and self.state ~= TaskState.PENDING then
+	if #self.deps > 0 then
+		for _, dep in ipairs(self.deps) do
+			dep:focus(mode)
+		end
+	elseif self.bufnr and self.state ~= TaskState.PENDING then
 		f()
 	else
 		self.deferred_focus = f
@@ -409,7 +413,6 @@ function Task:spawn()
 
 	async.run(function()
 		--- Run dependencies
-
 		local deps = {}
 		local err
 		local lib = require("recipe.lib")

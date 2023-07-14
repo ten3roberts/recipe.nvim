@@ -34,7 +34,12 @@ local function new_previewer()
 
 			util.expand_tree(tree, 3)
 
-			tree:render()
+			vim.bo[bufnr].modifiable = true
+			vim.bo[bufnr].readonly = false
+			vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {})
+			tree:render(1)
+			vim.bo[bufnr].modifiable = false
+			vim.bo[bufnr].readonly = true
 		end,
 	})
 

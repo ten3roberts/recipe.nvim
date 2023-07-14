@@ -238,33 +238,35 @@ function M.memoize_files(reader)
 	---@async
 	return function(path, parse)
 		async.util.scheduler()
-		local path = vim.loop.fs_realpath(path)
+
+		local realpath = vim.loop.fs_realpath(path)
 		-- local path = async.wrap(function(cb)
 		-- 	vim.loop.fs_realpath(path, cb)
 		-- end, 1)()
 
-		local cached = cache[path]
+		if realpath == nil then
+			require("recipe.logger").fmt_debug("Path %q not found", path)
+			return parse(), true
+		end
+
+		local cached = cache[realpath]
 		if cached then
 			return cached, false
 		end
 
-		if path == nil then
-			return parse(), true
-		end
-
 		-- Load and parse the file
 
-		local data, _ = reader(path)
+		local data, _ = reader(realpath)
 
-		M.watch_file(path, function()
-			vim.notify(path .. " changed")
-			cache[path] = nil
+		M.watch_file(realpath, function()
+			vim.notify(realpath .. " changed")
+			cache[realpath] = nil
 		end)
 
 		async.util.scheduler()
-		local value = parse(data, path)
+		local value = parse(data, realpath)
 
-		cache[path] = value
+		cache[realpath] = value
 		return value, true
 	end
 end

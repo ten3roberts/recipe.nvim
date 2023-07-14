@@ -97,7 +97,7 @@ local function cargo_command(v)
 	return Recipe:new({
 		cmd = cmd,
 		cwd = v.args.workspaceRoot,
-		key = v.label,
+		label = v.label,
 		location = location,
 	})
 end
@@ -147,7 +147,7 @@ local function cargo_debug_command(v)
 	return Recipe:new({
 		cmd = cmd,
 		cwd = v.args.workspaceRoot,
-		key = label,
+		label = label,
 		location = location,
 		components = {
 			["cargo-dap"] = {
@@ -169,8 +169,10 @@ function provider.load(_)
 			local recipe = cargo_command(v)
 			t[recipe.label] = recipe
 
+			local orig_label = recipe.label
 			local recipe = cargo_debug_command(v)
 			if recipe then
+				assert(orig_label ~= recipe.label)
 				t[recipe.label] = recipe
 			end
 		end
