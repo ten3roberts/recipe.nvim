@@ -114,7 +114,7 @@ local function cargo_debug_command(v)
 			cmd[i] = "build"
 		elseif arg == "test" then
 			if not vim.tbl_contains(v.args.cargoArgs, "--no-run") then
-				table.insert(v.args.cargoArgs, "--no-run")
+				table.insert(cmd, "--no-run")
 			end
 		end
 	end
