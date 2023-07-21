@@ -101,9 +101,9 @@ return {
 				end
 
 				if #executables == 0 then
-					util.log_error("Failed to find executable in build output")
-				-- elseif #executables == 1 then
-				-- 	launch(executables[1])
+					util.log_error("No executable in build output")
+				elseif #executables == 1 then
+					launch(executables[1])
 				else
 					vim.ui.select(executables, {
 						prompt = "Select executable:",
