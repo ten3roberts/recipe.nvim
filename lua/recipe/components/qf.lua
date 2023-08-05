@@ -16,6 +16,10 @@ return {
 		compiler = nil,
 		throttle = 2000,
 		max_lines = 2000,
+		-- one of true|false|auto
+		--
+		-- If auto, open if there are errors
+		open = "auto",
 	},
 
 	---@param params QfParams
@@ -41,7 +45,7 @@ return {
 			end,
 			on_exit = function(task)
 				throttle.stop()
-				parse(task, "auto", false)
+				parse(task, params.open, false)
 				quickfix.release_lock(lock)
 			end,
 		}
