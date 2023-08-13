@@ -435,32 +435,58 @@ function Task:spawn()
 			async.util.join(deps)
 		end
 
-		local on_output = components.collect_method(instances, "on_output")
+		self.deps = {}
 
-		self.stdout = {}
-		self.stderr = {}
-		local handle_stdout, stdout_cleanup = util.handle_output(self.stdout, 10000)
-		local handle_stderr, stderr_cleanup = util.handle_output(self.stderr, 10000)
+		if err then
+			util.log_error("Failed to execute dependency: " .. err)
+			on_exit(nil, -1)
+			return
+		end
 
-		local on_stdout = function(_, lines)
-			handle_stdout(lines)
-			on_output(self)
+		if config.opts.dotenv then
+			local denv = require("recipe.dotenv").load(config.opts.dotenv)
+			env = vim.tbl_extend("keep", env, denv)
 		end
-		local on_stderr = function(_, lines)
-			handle_stderr(lines)
-			on_output(self)
+
+		self.env = env
+
+		local cwd = vim.fn.fnamemodify(recipe.cwd, ":p")
+		if vim.fn.isdirectory(cwd) ~= 1 then
+			util.log_error("No such directory: " .. vim.inspect(cwd))
+			on_exit(nil, -1)
+			return
 		end
+
+		for i, hook in ipairs(config.opts.hooks.pre) do
+			logger.fmt_info("Running pre hook %d", i)
+			pcall(hook, recipe)
+		end
+
+		local cmd = self.recipe.cmd
+
+		local function replace_expand(s)
+			return s:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)
+		end
+
+		-- logger.fmt_info("Running command: %q\nenv: %s", vim.inspect(cmd), vim.inspect(env))
+		if not recipe.components.plain then
+			if type(cmd) == "string" then
+				cmd = replace_expand(cmd)
+			elseif type(cmd) == "table" then
+				cmd = vim.tbl_map(replace_expand, cmd)
+			end
+		end
+
+		local err = ""
+
+		local jobnr = -1
 
 		local start_time = uv.now()
-
 		local function on_exit(_, code)
 			logger.fmt_info("Task %s exited", self.key)
 			self.jobnr = nil
 			self.code = code
 			self.state = TaskState.STOPPED
-
-			stderr_cleanup()
-			stdout_cleanup()
 
 			if code == 0 and config.auto_close and fn.bufloaded(bufnr) == 1 then
 				local win = find_win(bufnr)
@@ -487,54 +513,21 @@ function Task:spawn()
 
 			self.on_exit = {}
 		end
-
-		if err then
-			util.log_error("Failed to execute dependency: " .. err)
-			on_exit(nil, -1)
-			return
-		end
-
-		self.deps = {}
-
-		if config.opts.dotenv then
-			local denv = require("recipe.dotenv").load(config.opts.dotenv)
-			env = vim.tbl_extend("keep", env, denv)
-		end
-
-		self.env = env
-
-		local cwd = vim.fn.fnamemodify(recipe.cwd, ":p")
-		if vim.fn.isdirectory(cwd) ~= 1 then
-			util.log_error("No such directory: " .. vim.inspect(cwd))
-			on_exit(nil, -1)
-			return
-		end
-
-		for i, hook in ipairs(config.opts.hooks.pre) do
-			logger.fmt_info("Running pre hook %d", i)
-			hook(recipe)
-		end
-
-		local cmd = self.recipe.cmd
-
-		local function replace_expand(s)
-			return s:gsub("([%%#][:phtre]*)", fn.expand):gsub("(<%a+>[:phtre]*)", fn.expand)
-		end
-
-		-- logger.fmt_info("Running command: %q\nenv: %s", vim.inspect(cmd), vim.inspect(env))
-		if not recipe.components.plain then
-			if type(cmd) == "string" then
-				cmd = replace_expand(cmd)
-			elseif type(cmd) == "table" then
-				cmd = vim.tbl_map(replace_expand, cmd)
-			end
-		end
-
-		local err = ""
-
-		local jobnr = -1
-
 		if cmd then
+			local on_output = components.collect_method(instances, "on_output")
+			local on_stdout = components.collect_method(instances, "on_stdout")
+			local on_stderr = components.collect_method(instances, "on_stderr")
+
+			local on_stdout = function(_, lines)
+				on_stdout(self, lines)
+				on_output(self)
+			end
+
+			local on_stderr = function(_, lines)
+				on_stderr(self, lines)
+				on_output(self)
+			end
+
 			vim.api.nvim_buf_call(self.bufnr, function()
 				local success, j = pcall(fn.termopen, cmd, {
 					cwd = cwd,

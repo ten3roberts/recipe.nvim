@@ -6,10 +6,9 @@ local util = require("recipe.util")
 ---@field path string
 ---@field kind string
 
----@param task Task
+---@param output string[]
 ---@return Executable
-local function find_executables(task)
-	local output = task.stdout
+local function find_executables(output)
 	local t = {}
 	for _, line in ipairs(output) do
 		local ok, a = pcall(vim.json.decode, line)
@@ -29,8 +28,6 @@ local function find_executables(task)
 				local name = a.target.name
 				local profile = a.profile
 
-				print("Found artifact: " .. vim.inspect(a))
-
 				if vim.tbl_contains(kind, "bin") or vim.tbl_contains(kind, "example") or profile.test == true then
 					local ex = {
 						name = name,
@@ -38,8 +35,6 @@ local function find_executables(task)
 						kind = (kind or {})[1],
 						test = profile.test,
 					}
-
-					print("Found executable " .. vim.inspect(ex))
 
 					table.insert(t, ex)
 				end
@@ -62,14 +57,23 @@ return {
 	},
 	---@param params DapParams
 	new = function(_, params)
+		local output = { "" }
+
 		return {
+			on_stdout = function(_, lines)
+				output[#output] = output[#output] .. lines[1]
+
+				for i = 2, #lines do
+					table.insert(output, lines[i])
+				end
+			end,
 			on_exit = function(task)
 				if task.code ~= 0 then
 					util.log_error("Build failed, skipping debug")
 					return
 				end
 
-				local executables = find_executables(task)
+				local executables = find_executables(output)
 
 				vim.notify("Found executables: " .. vim.inspect(executables))
 
