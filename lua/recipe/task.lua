@@ -437,6 +437,39 @@ function Task:spawn()
 
 		self.deps = {}
 
+		local start_time = uv.now()
+		local function on_exit(_, code)
+			logger.fmt_info("Task %s exited", self.key)
+			self.jobnr = nil
+			self.code = code
+			self.state = TaskState.STOPPED
+
+			if code == 0 and config.auto_close and fn.bufloaded(bufnr) == 1 then
+				local win = find_win(bufnr)
+				if win and api.nvim_win_is_valid(win) then
+					api.nvim_win_close(win, false)
+				end
+			end
+
+			local duration = (uv.now() - start_time)
+
+			local level = (code == 0 and vim.log.levels.INFO) or vim.log.levels.ERROR
+
+			local state = code == 0 and "Success" or string.format("Failure %d", code)
+
+			local msg = string.format("%s: %q %s", state, key, util.format_time(duration))
+			if not self:get_window({ global_terminal = false }) then
+				vim.notify(msg, level)
+			end
+
+			for i, cb in ipairs(self.on_exit) do
+				logger.fmt_info("Running on_exit callback %d", i)
+				cb(self, code)
+			end
+
+			self.on_exit = {}
+		end
+
 		if err then
 			util.log_error("Failed to execute dependency: " .. err)
 			on_exit(nil, -1)
@@ -481,38 +514,6 @@ function Task:spawn()
 
 		local jobnr = -1
 
-		local start_time = uv.now()
-		local function on_exit(_, code)
-			logger.fmt_info("Task %s exited", self.key)
-			self.jobnr = nil
-			self.code = code
-			self.state = TaskState.STOPPED
-
-			if code == 0 and config.auto_close and fn.bufloaded(bufnr) == 1 then
-				local win = find_win(bufnr)
-				if win and api.nvim_win_is_valid(win) then
-					api.nvim_win_close(win, false)
-				end
-			end
-
-			local duration = (uv.now() - start_time)
-
-			local level = (code == 0 and vim.log.levels.INFO) or vim.log.levels.ERROR
-
-			local state = code == 0 and "Success" or string.format("Failure %d", code)
-
-			local msg = string.format("%s: %q %s", state, key, util.format_time(duration))
-			if not self:get_window({ global_terminal = false }) then
-				vim.notify(msg, level)
-			end
-
-			for i, cb in ipairs(self.on_exit) do
-				logger.fmt_info("Running on_exit callback %d", i)
-				cb(self, code)
-			end
-
-			self.on_exit = {}
-		end
 		if cmd then
 			local on_output = components.collect_method(instances, "on_output")
 			local on_stdout = components.collect_method(instances, "on_stdout")
