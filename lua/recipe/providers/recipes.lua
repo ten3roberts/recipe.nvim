@@ -126,7 +126,7 @@ function provider.load(path)
 
 	local recipes = {}
 	for i, path in ipairs(provider.discovered) do
-		local source = "󱅾 " .. vim.fn.fnamemodify(path, ":p:.:h")
+		local source = "recipe " .. vim.fn.fnamemodify(path, ":p:.:h")
 		require("recipe.logger").fmt_info("Loading recipes from %s: %s", path, source)
 
 		local res = (provider.memo)(path, parse_recipes)

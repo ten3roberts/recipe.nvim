@@ -204,9 +204,9 @@ end
 
 function Recipe:format(key, padding)
 	local cmd = self:fmt_cmd()
-	local padding = string.rep(" ", math.max(padding - #key, 0))
+	local padding = string.rep(" ", math.max(padding - #self.label, 0))
 
-	return string.format("%s%s - %s %s", key, padding, self.source, cmd)
+	return string.format("%s%s - %s %s", self.label, padding, self.source, cmd)
 end
 
 function Recipe:has_component(kind)

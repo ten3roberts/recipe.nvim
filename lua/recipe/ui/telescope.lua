@@ -101,7 +101,7 @@ M.actions = {
 local function picker(opts, tasks)
 	return pickers.new(opts, {
 		prompt_title = "Recipes",
-		previewer = new_previewer(),
+		-- previewer = new_previewer(),
 		finder = finders.new_table({
 			results = tasks,
 			entry_maker = function(entry)
@@ -111,7 +111,7 @@ local function picker(opts, tasks)
 				return {
 					value = entry,
 					display = fmt,
-					ordinal = fmt,
+					ordinal = entry.key,
 				}
 			end,
 		}),
