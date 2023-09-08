@@ -253,7 +253,7 @@ function Task:close()
 
 	local windows = vim.fn.win_findbuf(self.bufnr)
 
-	for _, window in ipairs(windows) do
+	for _, window in ipairs(windows or {}) do
 		api.nvim_win_close(window, true)
 	end
 end
@@ -581,8 +581,10 @@ function Task:spawn()
 		end)
 
 		if self.deferred_focus then
-			self.deferred_focus(self)
-			self.deferred_focus = nil
+			vim.schedule(function()
+				self.deferred_focus(self)
+				self.deferred_focus = nil
+			end)
 		end
 	end, function() end)
 

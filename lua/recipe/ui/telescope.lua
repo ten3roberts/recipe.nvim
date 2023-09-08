@@ -70,7 +70,9 @@ function M.task_action(method, close)
 		vim.schedule(function()
 			for _, sel in ipairs(selection) do
 				local value = sel.value
-				value[method](value)
+				vim.schedule(function()
+					value[method](value)
+				end)
 			end
 		end)
 
