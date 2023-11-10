@@ -1,4 +1,4 @@
-local M = {}
+local logger = require("logger")
 local util = require("recipe.util")
 
 ---@class Executable
@@ -75,7 +75,7 @@ return {
 
 				local executables = find_executables(output)
 
-				vim.notify("Found executables: " .. vim.inspect(executables))
+				logger.fmt_info("Found executables: %s", vim.inspect(executables))
 
 				---@param executable Executable
 				local function launch(executable)
@@ -94,7 +94,7 @@ return {
 					}
 
 					if dap then
-						vim.notify("Launching dap session: " .. vim.inspect(conf))
+						logger.fmt_info("Launching dap session: %s", vim.inspect(conf))
 						dap.terminate()
 						vim.schedule(function()
 							dap.run(conf)

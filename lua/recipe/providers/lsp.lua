@@ -85,7 +85,9 @@ local function cargo_command(v)
 	local cmd = { "cargo" }
 	vim.list_extend(cmd, v.args.cargoArgs)
 	vim.list_extend(cmd, v.args.cargoExtraArgs)
-	table.insert(cmd, "--")
+	if #v.args.executableArgs > 0 then
+		table.insert(cmd, "--")
+	end
 	vim.list_extend(cmd, v.args.executableArgs)
 
 	local location

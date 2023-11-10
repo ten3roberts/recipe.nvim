@@ -23,12 +23,12 @@ M.opts = {
 		global = {},
 		filetypes = {
 			rust = {
-				build = { cmd = "cargo build" },
-				check = { cmd = "cargo check" },
-				clippy = { cmd = "cargo clippy" },
-				clean = { cmd = "cargo clean" },
-				run = { cmd = "cargo run" },
-				test = { cmd = "cargo test --all-features" },
+				-- build = { cmd = "cargo build" },
+				-- check = { cmd = "cargo check" },
+				-- clippy = { cmd = "cargo clippy" },
+				-- clean = { cmd = "cargo clean" },
+				-- run = { cmd = "cargo run" },
+				-- test = { cmd = "cargo test --all-features" },
 				doc = { cmd = "cargo doc --open" },
 			},
 			python = {

@@ -258,8 +258,9 @@ function M.memoize_files(reader)
 
 		local data, _ = reader(realpath)
 
+		local logger = require("recipe.logger")
 		M.watch_file(realpath, function()
-			vim.notify(realpath .. " changed")
+			logger.fmt_debug("changed %q", realpath)
 			cache[realpath] = nil
 		end)
 
@@ -413,15 +414,16 @@ function M.throttle(f, timeout)
 			-- vim.notify("Starting timer: " .. rem)
 			-- Reuse timer
 			if not timer then
-				timer = vim.loop.new_timer()
+				if not timer then
+					timer = vim.loop.new_timer()
+				end
 				timer:start(
 					rem,
 					0,
 					vim.schedule_wrap(function()
-						if timer then
+						if timer:is_active() then
 							timer:stop()
 							timer:close()
-							timer = nil
 						end
 
 						-- Reset here to ensure timeout between the execution of the
