@@ -262,11 +262,18 @@ end
 function Task:find_window(mode)
 	for _, winid in pairs(vim.api.nvim_list_wins()) do
 		local bufnr = api.nvim_win_get_buf(winid)
+		logger.fmt_info("win: %d buf: %d", winid, bufnr)
 		local task_info = vim.b[bufnr].recipe_task_info
 
 		if task_info then
 			if task_info.key == self.key or mode.global_terminal then
-				logger.fmt_info("Found open terminal with buffer %d", bufnr)
+				logger.fmt_info(
+					"[%s == %s] %s Found open terminal with buffer %d",
+					self.key,
+					task_info.key,
+					vim.inspect(mode),
+					bufnr
+				)
 				return winid
 			end
 		end
@@ -276,6 +283,7 @@ function Task:find_window(mode)
 end
 
 function Task:acquire_focused_win(config)
+	logger.fmt_info("acquire_focused_win %s", self.key)
 	local win = self:find_window(config)
 
 	if win then
@@ -339,6 +347,7 @@ end
 ---@param mode TermConfig|nil
 function Task:focus(mode)
 	local function f()
+		logger.fmt_info("Focusing %s", self.key)
 		mode = vim.tbl_extend("keep", mode or {}, require("recipe.config").opts.term)
 
 		local win = self:acquire_focused_win(mode)
@@ -352,7 +361,10 @@ function Task:focus(mode)
 		for _, dep in ipairs(self.deps) do
 			dep:focus(mode)
 		end
+
+		self.deferred_focus = f
 	elseif self.bufnr and self.state ~= TaskState.PENDING then
+		-- Focus immediately
 		f()
 	else
 		self.deferred_focus = f
@@ -365,7 +377,8 @@ Task._tostring = Task.format
 Task.join = async.wrap(Task.attach_callback, 2)
 
 ---Starts executing the task
-function Task:spawn()
+function Task:spawn(opts)
+	opts = opts or {}
 	if self.state ~= TaskState.STOPPED then
 		return self
 	end
@@ -385,6 +398,7 @@ function Task:spawn()
 	-- Create a blank buffer for the terminal
 	local bufnr = api.nvim_create_buf(false, false)
 
+	logger.fmt_info("Opened buffer for task %s %d", self.key, bufnr)
 	vim.b[bufnr].recipe_task_info = {
 		recipe = self.recipe,
 		key = self.key,
@@ -410,7 +424,7 @@ function Task:spawn()
 		local lib = require("recipe.lib")
 
 		for _, v in ipairs(recipe.depends_on or {}) do
-			local child = lib.insert_task(v.label, v):spawn()
+			local child = lib.insert_task(v.label, v):spawn({ call_hidden = true })
 
 			table.insert(self.deps, child)
 			table.insert(deps, function()
@@ -562,7 +576,10 @@ function Task:spawn()
 			return
 		end
 
-		self.last_use = start_time
+		if not opts.call_hidden then
+			self.last_use = start_time
+		end
+
 		self.state = TaskState.RUNNING
 		self.jobnr = jobnr
 
