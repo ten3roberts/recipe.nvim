@@ -1,4 +1,4 @@
-local logger = require("logger")
+local logger = require("recipe.logger")
 local util = require("recipe.util")
 
 ---@class Executable

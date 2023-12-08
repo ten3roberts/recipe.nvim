@@ -106,7 +106,7 @@ local TaskState = {
 ---Represents a task
 ---@class Task
 ---@field key string
----@field bufnr number The buffer containing the process output
+---@field bufnr number|nil The buffer containing the process output
 ---@field jobnr number|nil
 ---@field recipe Recipe
 ---@field data table<string, any>
@@ -262,7 +262,7 @@ end
 function Task:find_window(mode)
 	for _, winid in pairs(vim.api.nvim_list_wins()) do
 		local bufnr = api.nvim_win_get_buf(winid)
-		logger.fmt_info("win: %d buf: %d", winid, bufnr)
+		logger.fmt_info("win: %d buf: %d", winid, bufnr or "-1")
 		local task_info = vim.b[bufnr].recipe_task_info
 
 		if task_info then
@@ -272,7 +272,7 @@ function Task:find_window(mode)
 					self.key,
 					task_info.key,
 					vim.inspect(mode),
-					bufnr
+					bufnr or -1
 				)
 				return winid
 			end
@@ -347,6 +347,10 @@ end
 ---@param mode TermConfig|nil
 function Task:focus(mode)
 	local function f()
+		if not self.recipe.cmd then
+			return
+		end
+
 		logger.fmt_info("Focusing %s", self.key)
 		mode = vim.tbl_extend("keep", mode or {}, require("recipe.config").opts.term)
 
@@ -396,16 +400,6 @@ function Task:spawn(opts)
 	local key = self.recipe.label
 
 	-- Create a blank buffer for the terminal
-	local bufnr = api.nvim_create_buf(false, false)
-
-	logger.fmt_info("Opened buffer for task %s %d", self.key, bufnr)
-	vim.b[bufnr].recipe_task_info = {
-		recipe = self.recipe,
-		key = self.key,
-		label = self.recipe.label,
-	}
-
-	self.bufnr = bufnr
 	local recipe = self.recipe
 
 	local env = vim.deepcopy(self.recipe.env or {})
@@ -443,6 +437,21 @@ function Task:spawn(opts)
 
 		self.deps = {}
 
+		local bufnr
+
+		if recipe.cmd then
+			bufnr = api.nvim_create_buf(false, false)
+
+			logger.fmt_info("Opened buffer for task %s %d", self.key, bufnr)
+			vim.b[bufnr].recipe_task_info = {
+				recipe = self.recipe,
+				key = self.key,
+				label = self.recipe.label,
+			}
+
+			self.bufnr = bufnr
+		end
+
 		local start_time = uv.now()
 		local function on_exit(_, code)
 			logger.fmt_info("Task %s exited", self.key)
@@ -450,7 +459,7 @@ function Task:spawn(opts)
 			self.code = code
 			self.state = TaskState.STOPPED
 
-			if code == 0 and config.auto_close and fn.bufloaded(bufnr) == 1 then
+			if code == 0 and config.auto_close and bufnr and fn.bufloaded(bufnr) == 1 then
 				local win = find_win(bufnr)
 				if win and api.nvim_win_is_valid(win) then
 					api.nvim_win_close(win, false)
@@ -518,7 +527,7 @@ function Task:spawn(opts)
 
 		local err = ""
 
-		local jobnr = -1
+		local jobnr = nil
 
 		if cmd then
 			local on_output = components.collect_method(instances, "on_output")
@@ -554,26 +563,32 @@ function Task:spawn(opts)
 					err = j
 				end
 			end)
+
+			local prev_win = self:find_window({ global_terminal = false })
+			if prev_win then
+				api.nvim_win_set_buf(prev_win, self.bufnr)
+
+				if config.opts.scroll_to_end then
+					util.scroll_to_end(prev_win)
+				end
+			end
+
+			if jobnr <= 0 then
+				util.log_error(string.format("Failed to run command: %q\n\n%s", recipe:fmt_cmd(), err))
+				on_exit(nil, -1)
+				return
+			end
+
+			if self.deferred_focus then
+				vim.schedule(function()
+					self.deferred_focus(self)
+					self.deferred_focus = nil
+				end)
+			end
 		else
-			logger.fmt_info("Virtual command")
 			vim.schedule(function()
 				on_exit(nil, 0)
 			end)
-		end
-
-		local prev_win = self:find_window({ global_terminal = false })
-		if prev_win then
-			api.nvim_win_set_buf(prev_win, self.bufnr)
-
-			if config.opts.scroll_to_end then
-				util.scroll_to_end(prev_win)
-			end
-		end
-
-		if jobnr <= 0 then
-			util.log_error(string.format("Failed to run command: %q\n\n%s", recipe:fmt_cmd(), err))
-			on_exit(nil, -1)
-			return
 		end
 
 		if not opts.call_hidden then
@@ -588,13 +603,6 @@ function Task:spawn(opts)
 		self:attach_callback(function()
 			components.execute(instances, "on_exit", self)
 		end)
-
-		if self.deferred_focus then
-			vim.schedule(function()
-				self.deferred_focus(self)
-				self.deferred_focus = nil
-			end)
-		end
 	end, function() end)
 
 	return self
