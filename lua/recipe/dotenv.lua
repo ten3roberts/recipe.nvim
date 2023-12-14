@@ -171,7 +171,7 @@ local function tokenize(data)
 	while #data > 0 and i < 100 do
 		local token, tail = tok_next(data, prev)
 		if not token or not tail then
-			util.log_error("Failed to parse dotenv. Unexpected near: " .. data:sub(1, math.a(#data, 16)))
+			util.log_error("Failed to parse dotenv. Unexpected near: " .. data:sub(1, math.min(#data, 16)))
 			return {}
 		end
 
