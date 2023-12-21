@@ -67,15 +67,16 @@ local function parse_recipes(data, path)
 		-- Resolve dependencies
 		for i, v in ipairs(value.depends_on or value.dependencies or {}) do
 			if type(v) == "string" then
-				local dep, err = parse_recipe(v, v)
-				if not dep then
-					return nil, "Failed to parse dependency:\n" .. err
-				end
+				-- local dep, err = parse_recipe(v, v)
+				-- if not dep then
+				-- 	return nil, "Failed to parse dependency:\n" .. err
+				-- end
 
-				table.insert(recipe.depends_on, dep)
+				table.insert(recipe.depends_on, v)
 			elseif type(v) == "table" then
 				-- Anonymous recipe
-				local dep, err = parse_recipe(key .. ":dep." .. i, v)
+				local child_key = key .. ":dep." .. i
+				local dep, err = parse_recipe(child_key, v)
 
 				if not dep then
 					return nil, "Failed to parse dependency:\n" .. err
@@ -83,7 +84,7 @@ local function parse_recipes(data, path)
 
 				dep.hidden = true
 
-				table.insert(recipe.depends_on, dep)
+				table.insert(recipe.depends_on, child_key)
 			end
 		end
 

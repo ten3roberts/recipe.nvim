@@ -24,7 +24,7 @@ local function parse_targets(data)
 				name = target,
 			})
 
-			result[target] = recipe
+			result["make " .. target] = recipe
 		end
 	end
 

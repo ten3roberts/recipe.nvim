@@ -16,7 +16,7 @@ local util = require("recipe.util")
 ---@field source string
 ---@field label string
 ---@field components table<string, any>
----@field depends_on Recipe[]
+---@field depends_on string[]
 ---@field priority number
 ---@field location Location
 local Recipe = {}
@@ -58,7 +58,7 @@ function Recipe:new(o)
 
 	t.depends_on = {}
 	for _, dep in ipairs(o.depends_on or {}) do
-		table.insert(t.depends_on, Recipe:new(dep))
+		table.insert(t.depends_on, dep)
 	end
 
 	t.cwd = vim.fn.fnamemodify(o.cwd or vim.fn.getcwd(), ":p:~")
@@ -188,7 +188,7 @@ function Recipe:display()
 
 	local deps = {}
 	for _, v in pairs(self.depends_on or {}) do
-		table.insert(deps, v:display())
+		table.insert(deps, v)
 	end
 
 	if #deps ~= 0 then
@@ -218,7 +218,7 @@ end
 function Recipe:to_json()
 	local depends_on = {}
 	for _, v in ipairs(self.depends_on) do
-		table.insert(depends_on, v:to_json())
+		table.insert(depends_on, v)
 	end
 
 	local components = {}

@@ -418,13 +418,20 @@ function Task:spawn(opts)
 		local lib = require("recipe.lib")
 
 		for _, v in ipairs(recipe.depends_on or {}) do
-			local child = lib.insert_task(v.label, v):spawn({ call_hidden = true })
+			local child_task = lib.get_task(v)
+			if not child_task then
+				err = string.format("No such task: %s", v)
+				break
+			end
+
+			logger.fmt_info("Running dependency %s", child_task:format())
+			local child = child_task:spawn({ call_hidden = true })
 
 			table.insert(self.deps, child)
 			table.insert(deps, function()
 				local _, code = child:join()
 				if code ~= 0 then
-					err = string.format("%s exited with code: %s", v.label, code)
+					err = string.format("%s exited with code: %s", v, code)
 				end
 			end)
 		end
