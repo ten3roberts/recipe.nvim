@@ -101,6 +101,10 @@ local function parse_recipes(data, path)
 
 	for key, value in pairs(json) do
 		recipes[key] = in_progress
+		if type(value) == "string" then
+			value = { cmd = value }
+		end
+
 		local recipe, err = parse_recipe(key, value)
 
 		if not recipe then

@@ -89,11 +89,11 @@ function M.set(lock, recipe, compiler, data, open, conservative)
 	if lock then
 		lock.expiration = cur_time + 10000
 
-		local old_cwd = vim.fn.getcwd()
-		api.nvim_set_current_dir(recipe.cwd)
+		-- local old_cwd = vim.fn.getcwd()
+		-- api.nvim_set_current_dir(recipe.cwd)
 		util.qf(recipe:fmt_cmd(), compiler, data, open)
 		logger.fmt_info("%s %s wrote to quickfix list", recipe.label, recipe.label or "<no label>")
-		api.nvim_set_current_dir(old_cwd)
+		-- api.nvim_set_current_dir(old_cwd)
 	end
 
 	local change_tick = get_change_tick()
