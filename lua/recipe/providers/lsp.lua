@@ -23,23 +23,22 @@ local function runnables(bufnr)
 	local result = {}
 	for _, client in pairs(vim.lsp.get_active_clients({ bufnr = bufnr })) do
 		if client.supports_method("experimental/runnables") then
-			table.insert(
-				futures,
-				util.timeout(
+			table.insert(futures, function()
+				local client_result = util.timeout(
 					function()
 						local _, res = runnables_async(client, bufnr)
-						for _, v in ipairs(res or {}) do
-							table.insert(result, v)
-						end
-
-						return nil
+						return res
 					end,
-					1500,
+					5000,
 					function()
 						util.warn("LSP runnables timed out for " .. client.name)
 					end
 				)
-			)
+
+				for _, v in ipairs(client_result or {}) do
+					table.insert(result, v)
+				end
+			end)
 		end
 	end
 

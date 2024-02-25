@@ -1,4 +1,5 @@
 local pickers = require("telescope.pickers")
+local util = require("recipe.util")
 local finders = require("telescope.finders")
 local conf = require("telescope.config").values
 
@@ -133,12 +134,15 @@ local function picker(opts, tasks)
 	})
 end
 
+local function load_tasks()
+	return util.timeout(lib.load, 100) or lib.all_tasks()
+end
 function M.pick(opts)
 	opts = opts or {}
 
 	local t = {}
 
-	local tasks = lib.load()
+	local tasks = load_tasks()
 
 	for _, task in pairs(tasks) do
 		if not task.recipe.hidden then
@@ -146,7 +150,6 @@ function M.pick(opts)
 		end
 	end
 
-	local util = require("recipe.util")
 	local pos = util.get_position()
 	local now = vim.loop.now()
 
@@ -161,7 +164,7 @@ function M.pick_running(opts)
 
 	local t = {}
 
-	local tasks = lib.load()
+	local tasks = load_tasks()
 
 	for _, task in pairs(tasks) do
 		if not task.recipe.hidden and task.state == "running" then
@@ -184,7 +187,7 @@ function M.pick_local(opts)
 
 	local t = {}
 
-	local tasks = lib.load()
+	local tasks = load_tasks()
 
 	local current_bufnr = vim.api.nvim_get_current_buf()
 

@@ -149,7 +149,6 @@ end
 ---@return string|nil, string|nil
 function M.read_file_async(path)
 	local err, fd = async.uv.fs_open(path, "r", 438)
-	assert(not err, err)
 	if err then
 		return nil, err
 	end
@@ -184,6 +183,26 @@ function M.write_file(path, data, callback)
 			end)
 		end)
 	end)
+end
+
+function M.write_file_async(path, data)
+	local err, fd = async.uv.fs_open(path, "w", 438)
+	assert(not err, err)
+	if err then
+		return err
+	end
+
+	local err
+	async.uv.fs_write(fd, data, 0)
+	if err then
+		return err
+	end
+
+	local err = async.uv.fs_close(fd)
+
+	if err then
+		return err
+	end
 end
 
 ---Execute `callback` when path changes.

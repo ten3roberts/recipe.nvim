@@ -317,10 +317,10 @@ function Task:open_vsplit()
 end
 
 function Task:to_json()
-	local json = self.recipe:to_json()
+	local content = vim.json.encode(self.recipe:to_json())
 
-	vim.fn.setreg('"', json)
-	vim.notify('Recipe copied to register @"\n\n' .. json)
+	vim.fn.setreg('"', content)
+	vim.notify('Recipe copied to register @"\n\n' .. content)
 end
 
 function Task:menu()

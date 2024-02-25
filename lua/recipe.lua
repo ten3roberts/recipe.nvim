@@ -1,4 +1,5 @@
 local api = vim.api
+local async = require("plenary.async")
 
 local util = require("recipe.util")
 local lib = require("recipe.lib")
@@ -14,13 +15,21 @@ local M = {
 ---@param opts Config
 function M.setup(opts)
 	config.setup(opts)
-	-- if config.opts.term.jump_to_end then
-	-- 	au("TermOpen", {
-	-- 		callback = function()
-	-- 			vim.cmd("normal! G")
-	-- 		end,
-	-- 	})
-	-- end
+
+	local group = api.nvim_create_augroup("recipe", { clear = true })
+
+	async.run(function()
+		lib.load_cache()
+	end)
+
+	api.nvim_create_autocmd("VimLeave", {
+		group = group,
+		callback = function()
+			async.run(function()
+				lib.save_cache()
+			end)
+		end,
+	})
 end
 
 ---Execute a recipe by name
@@ -33,7 +42,6 @@ end
 
 M.stop_all = lib.stop_all
 
-local async = require("plenary.async")
 function M.register(name, provider)
 	local providers = require("recipe.providers")
 	providers.register(name, provider)
@@ -42,14 +50,14 @@ end
 ---@async
 ---Loads all recipes asynchronously
 ---@return Tasks
-function M.load(timeout)
-	return lib.load(timeout)
+function M.load()
+	return lib.load()
 end
 
 ---@param cb fun(recipes: Tasks)
-function M.load_cb(timeout, cb)
+function M.with_tasks_timeout(cb)
 	async.run(function()
-		return M.load(timeout)
+		return util.timeout(M.load, 100) or lib.all_tasks()
 	end, cb)
 end
 
@@ -57,7 +65,8 @@ end
 ---@param name string
 ---@param open TermConfig|nil
 function M.bake(name, open)
-	M.load_cb(nil, function(tasks)
+	async.run(function()
+		local tasks = lib.load()
 		local task = tasks[name]
 
 		if task == nil then
@@ -85,7 +94,7 @@ end
 ---@param recipe Recipe|table
 ---@param open TermConfig|nil
 ---@return Task
-M.execute = function(recipe, open)
+function M.execute(recipe, open)
 	local task = lib.insert_task(nil, M.Recipe:new(recipe))
 
 	task:spawn()
@@ -124,7 +133,7 @@ local function order(tasks)
 end
 
 function M.pick()
-	M.load_cb(1000, function(tasks)
+	M.with_tasks_timeout(function(tasks)
 		local items = order(tasks)
 
 		if #items == 0 then
@@ -167,7 +176,7 @@ end
 
 local __recipes = {}
 function M.complete(lead, _, _)
-	M.load_cb(1000, function(v)
+	M.with_tasks_timeout(function(v)
 		__recipes = v
 	end)
 

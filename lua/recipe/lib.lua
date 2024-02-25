@@ -1,6 +1,8 @@
 local config = require("recipe.config")
+local logger = require("recipe.logger")
 local uv = vim.loop
 local fn = vim.fn
+local async = require("plenary.async")
 
 local util = require("recipe.util")
 
@@ -59,14 +61,43 @@ function M.recent()
 	return recent_tasks
 end
 
---- Loads recipes from providers into tasks
----@return table<string, Task>
-function M.load(timeout)
-	local providers = require("recipe.providers")
-	local recipes = providers.load(timeout)
+---@async
+function M.load_cache()
+	local cache = require("recipe.cache")
+
+	local recipes = cache.load()
+
+	logger.fmt_debug("Loaded %d recipes from cache", vim.tbl_count(recipes))
 	for k, v in pairs(recipes) do
 		M.insert_task(k, v)
 	end
+end
+
+---@async
+function M.save_cache()
+	local cache = require("recipe.cache")
+
+	local recipes = {}
+	for k, v in pairs(tasks) do
+		recipes[k] = v.recipe
+	end
+
+	cache.save(recipes)
+	logger.fmt_debug("Saved %d recipes to cache", vim.tbl_count(recipes))
+end
+
+--- Loads recipes from providers into tasks
+---@return table<string, Task>
+function M.load()
+	local providers = require("recipe.providers")
+	local recipes = providers.load()
+	for k, v in pairs(recipes) do
+		M.insert_task(k, v)
+	end
+
+	async.run(function()
+		M.save_cache()
+	end)
 
 	return tasks
 end
@@ -76,15 +107,18 @@ function M.insert_task(key, recipe)
 	local Task = require("recipe.task")
 	local key = key or recipe.label
 	local task = tasks[key]
+
 	if not task then
+		logger.fmt_debug("Inserting recipe %s from %s", key, recipe.source or "")
 		task = Task:new(key, recipe)
+		tasks[key] = task
+		return task
+	elseif task.recipe.priority <= recipe.priority then
+		logger.fmt_debug("Updating recipe %s from %s", key, task.recipe.source or "")
+		-- Update the recipe
+		task.recipe = recipe
+		return task
 	end
-
-	-- Update the recipe
-	task.recipe = recipe
-
-	tasks[key] = task
-	return task
 end
 
 ---@return Task|nil

@@ -19,6 +19,7 @@ local util = require("recipe.util")
 ---@field depends_on string[]
 ---@field priority number
 ---@field location Location
+---@field from_cache boolean
 local Recipe = {}
 Recipe.__index = Recipe
 
@@ -206,16 +207,30 @@ function Recipe:format(key, padding)
 	local cmd = self:fmt_cmd()
 	local padding = string.rep(" ", math.max(padding - #self.label, 0))
 
-	return string.format("%s%s - %s %s", self.label, padding, self.source, cmd)
+	return string.format("%s%s - %s%s %s", self.label, padding, self.from_cache and "󱐋 " or "", self.source, cmd)
 end
 
 function Recipe:has_component(kind)
 	return self.components[kind] ~= nil
 end
 
+function Recipe:from_json(data)
+	return Recipe:new({
+		label = data.label,
+		source = data.source,
+		depends_on = data.depends_on or {},
+		cmd = data.cmd,
+		cwd = data.cwd,
+		env = data.env,
+		components = data.components or {},
+		priority = data.priority,
+		hidden = data.hidden,
+	})
+end
+
 --- Serializes the recipe to json
----@return string
-function Recipe:to_json()
+---@return table
+function Recipe:to_json(full)
 	local depends_on = {}
 	for _, v in ipairs(self.depends_on) do
 		table.insert(depends_on, v)
@@ -229,13 +244,16 @@ function Recipe:to_json()
 	end
 
 	local cwd = vim.fn.fnamemodify(self.cwd, ":p:~:.")
-	return vim.json.encode({
+	return {
+		label = self.label,
 		cmd = self.cmd,
 		cwd = cwd ~= "" and cwd or nil,
 		env = self.env,
 		components = vim.tbl_count(components) > 0 and components or nil,
 		depends_on = #depends_on > 0 and depends_on or nil,
-	})
+		priority = full and self.priority,
+		source = full and self.source,
+	}
 end
 
 return Recipe

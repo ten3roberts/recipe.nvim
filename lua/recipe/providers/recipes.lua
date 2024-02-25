@@ -135,7 +135,6 @@ function provider.load(path)
 		require("recipe.logger").fmt_info("Loading recipes from %s: %s", path, source)
 
 		local res = (provider.memo)(path, parse_recipes)
-		logger.fmt_info("Loaded recipes from %d:[%s]: %d", i, path, vim.tbl_count(res))
 		for k, v in pairs(res) do
 			v.source = source
 			recipes[k] = v

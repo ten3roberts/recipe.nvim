@@ -31,9 +31,17 @@ return {
 			return {}
 		end
 
+		local done
 		---@param task Task
 		local function parse(task, open, conservative)
+			if done then
+				return
+			end
 			local lines = task:get_output(0, params.max_lines)
+			if #lines >= params.max_lines then
+				done = true
+			end
+
 			lock = quickfix.set(lock, task.recipe, compiler, lines, open, conservative)
 		end
 
