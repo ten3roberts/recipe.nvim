@@ -31,7 +31,7 @@ local function runnables(bufnr)
 					end,
 					5000,
 					function()
-						util.warn("LSP runnables timed out for " .. client.name)
+						util.warn("LSP runnables timed out for " .. (client or { name = "unknown" }).name)
 					end
 				)
 
@@ -83,7 +83,7 @@ end
 local function cargo_command(v)
 	local cmd = { "cargo" }
 	vim.list_extend(cmd, v.args.cargoArgs)
-	vim.list_extend(cmd, v.args.cargoExtraArgs)
+	vim.list_extend(cmd, v.args.cargoExtraArgs or {})
 	if #v.args.executableArgs > 0 then
 		table.insert(cmd, "--")
 	end
@@ -120,10 +120,10 @@ local function cargo_debug_command(v)
 		end
 	end
 
-	if not vim.tbl_contains(v.args.cargoExtraArgs, "--message-format=json") then
+	if not vim.tbl_contains(v.args.cargoExtraArgs or {}, "--message-format=json") then
 		vim.list_extend(cmd, { "--message-format=json" })
 	end
-	vim.list_extend(cmd, v.args.cargoExtraArgs)
+	vim.list_extend(cmd, v.args.cargoExtraArgs or {})
 
 	local location
 

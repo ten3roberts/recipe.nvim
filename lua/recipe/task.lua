@@ -63,12 +63,12 @@ function M.open_win(config, bufnr)
 			end
 		end
 
-		vim.api.nvim_create_autocmd({ "WinLeave", "BufLeave" }, {
-			callback = function()
-				vim.defer_fn(close, 100)
-			end,
-			buffer = bufnr,
-		})
+		-- vim.api.nvim_create_autocmd({ "WinLeave", "BufLeave" }, {
+		-- 	callback = function()
+		-- 		vim.defer_fn(close, 100)
+		-- 	end,
+		-- 	buffer = bufnr,
+		-- })
 
 		return win
 	elseif config.kind == "split" then
@@ -475,13 +475,17 @@ function Task:spawn(opts)
 
 			local duration = (uv.now() - start_time)
 
-			local level = (code == 0 and vim.log.levels.INFO) or vim.log.levels.ERROR
+			local level = (code == 0 and vim.log.levels.INFO)
+				or (code == 128 and vim.log.levels.INFO)
+				or vim.log.levels.ERROR
 
-			local state = code == 0 and "Success" or string.format("Failure %d", code)
+			if code == 129 then
+				local state = code == 0 and "Success" or string.format("Failure %d", code)
 
-			local msg = string.format("%s: %q %s", state, key, util.format_time(duration))
-			if not self:find_window({ global_terminal = false }) then
-				vim.notify(msg, level)
+				local msg = string.format("%s: %q %s", state, key, util.format_time(duration))
+				if not self:find_window({ global_terminal = false }) then
+					vim.notify(msg, level)
+				end
 			end
 
 			for i, cb in ipairs(self.on_exit) do
