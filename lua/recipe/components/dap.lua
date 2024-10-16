@@ -27,7 +27,7 @@ return {
 				local conf = {
 					type = params.adapter or vim.o.ft,
 					request = "launch",
-					name = "Recipe " .. task.recipe.label,
+					name = task.recipe.label,
 					program = params.program,
 					args = params.args,
 					justMyCode = params.justMyCode,
@@ -35,7 +35,7 @@ return {
 				}
 
 				if dap then
-					vim.notify("Launching dap session: " .. vim.inspect(conf))
+					vim.notify("Launching dap session")
 					dap.terminate()
 					vim.schedule(function()
 						dap.run(conf)
