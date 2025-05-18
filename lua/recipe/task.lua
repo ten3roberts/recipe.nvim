@@ -560,7 +560,7 @@ function Task:spawn(opts)
 					cwd = cwd,
 					on_exit = vim.schedule_wrap(on_exit),
 					env = env,
-					width = 80,
+					-- width = 80,
 					height = 24,
 					on_stdout = on_stdout,
 					on_stderr = on_stderr,

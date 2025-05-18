@@ -57,7 +57,7 @@ end
 ---@param cb fun(recipes: Tasks)
 function M.with_tasks_timeout(cb)
 	async.run(function()
-		return util.timeout(M.load, 100) or lib.all_tasks()
+		return M.load()
 	end, cb)
 end
 

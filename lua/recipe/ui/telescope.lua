@@ -135,8 +135,9 @@ local function picker(opts, tasks)
 end
 
 local function load_tasks()
-	return util.timeout(lib.load, 100) or lib.all_tasks()
+	return lib.load()
 end
+
 function M.pick(opts)
 	opts = opts or {}
 
